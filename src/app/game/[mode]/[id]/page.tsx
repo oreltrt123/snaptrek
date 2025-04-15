@@ -3,7 +3,6 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { GameView } from "@/components/game/game-view"
 import { Button } from "@/components/ui/button"
-import { Home } from "lucide-react"
 
 export default async function GamePage({
   params,
@@ -36,7 +35,6 @@ export default async function GamePage({
       <div className="absolute top-4 right-4 z-20">
         <form action="/lobby">
           <Button type="submit" variant="outline" className="border-2 border-red-500 text-white hover:bg-red-500/20">
-            <Home className="mr-2 h-4 w-4" />
             Exit Game
           </Button>
         </form>
