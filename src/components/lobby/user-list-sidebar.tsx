@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Search, UserPlus, Users, Mail, RefreshCw, AlertTriangle } from 'lucide-react'
+import { X, Search, UserPlus, Check, XIcon, Users, AlertTriangle, RefreshCw, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface User {
   id: string
@@ -22,8 +22,10 @@ interface Invitation {
   status: "pending" | "accepted" | "declined"
   lobby_id: string
   created_at: string
-  sender_username?: string
-  sender_avatar?: string
+  sender?: {
+    username: string
+    avatar_url?: string
+  }
 }
 
 interface Notification {
@@ -32,14 +34,14 @@ interface Notification {
   type: "success" | "error" | "info" | "warning"
 }
 
-interface UserSearchSidebarProps {
+interface UserListSidebarProps {
   isOpen: boolean
   onClose: () => void
   lobbyId: string
   availablePosition: number
 }
 
-export function UserSearchSidebar({ isOpen, onClose, lobbyId, availablePosition }: UserSearchSidebarProps) {
+export function UserListSidebar({ isOpen, onClose, lobbyId, availablePosition }: UserListSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<User[]>([])
   const [allUsers, setAllUsers] = useState<User[]>([])
@@ -49,10 +51,7 @@ export function UserSearchSidebar({ isOpen, onClose, lobbyId, availablePosition 
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [activeTab, setActiveTab] = useState("all")
-  const [retryCount, setRetryCount] = useState(0)
-  const supabase = createClientComponentClient()
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("everyone") // Default to everyone tab
 
   // Simple notification system
   const showNotification = (message: string, type: "success" | "error" | "info" | "warning" = "info") => {
@@ -68,73 +67,14 @@ export function UserSearchSidebar({ isOpen, onClose, lobbyId, availablePosition 
   const removeNotification = (id: string) => {
     setNotifications((prev) => prev.filter((notification) => notification.id !== id))
   }
-// Add this function at the top of your component, right after the useState declarations
-const getUserIdFromLocalStorage = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('userId')
-  }
-  return null
-}
-// Replace the useEffect for getting current user with this:
-useEffect(() => {
-  const getCurrentUser = async () => {
-    try {
-      // First try to get from Supabase auth
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setCurrentUserId(user.id)
-        return
-      }
-      
-      // If not found in auth, try localStorage
-      const storedUserId = getUserIdFromLocalStorage()
-      if (storedUserId) {
-        console.log("Using user ID from localStorage:", storedUserId)
-        setCurrentUserId(storedUserId)
-        return
-      }
-      
-      // If still not found, show error
-      console.warn("No user ID found in auth or localStorage")
-      setError("User ID not found. Please try logging in again.")
-    } catch (error) {
-      console.error("Error getting current user:", error)
-    }
-  }
-
-  getCurrentUser()
-}, [supabase])
-  // Get current user on mount
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          setCurrentUserId(user.id)
-        } else {
-          // If not logged in, try to get user ID from localStorage
-          const storedUserId = localStorage.getItem('userId')
-          if (storedUserId) {
-            setCurrentUserId(storedUserId)
-          }
-        }
-      } catch (error) {
-        console.error("Error getting current user:", error)
-      }
-    }
-
-    getCurrentUser()
-  }, [supabase])
 
   // Fetch all users and invitations on mount
   useEffect(() => {
     if (isOpen) {
       fetchAllUsers()
-      if (currentUserId) {
-        fetchInvitations()
-      }
+      fetchInvitations()
     }
-  }, [isOpen, lobbyId, retryCount, currentUserId])
+  }, [isOpen, lobbyId])
 
   // Fetch all users
   const fetchAllUsers = async () => {
@@ -142,18 +82,23 @@ useEffect(() => {
     setError(null)
 
     try {
+      console.log("Fetching all users...")
       const response = await fetch("/api/lobby/all-users")
 
       if (!response.ok) {
         const errorText = await response.text()
+        console.error(`All users API error (${response.status}):`, errorText)
         throw new Error(`Server responded with ${response.status}: ${errorText}`)
       }
 
       const data = await response.json()
+      console.log("All users API response:", data)
 
       if (Array.isArray(data.users)) {
         setAllUsers(data.users)
+        console.log(`Loaded ${data.users.length} users successfully`)
       } else {
+        console.error("Unexpected data format:", data)
         setError("Received invalid data format from server")
         setAllUsers([])
       }
@@ -167,19 +112,15 @@ useEffect(() => {
     }
   }
 
-  // Fetch invitations - MODIFIED TO NOT REQUIRE AUTHENTICATION
+  // Fetch invitations
   const fetchInvitations = async () => {
-    if (!currentUserId) {
-      console.log("No user ID available for fetching invitations")
-      return
-    }
-
     try {
-      const response = await fetch(`/api/lobby/invitations?userId=${currentUserId}`)
+      const response = await fetch(`/api/lobby/invitations?lobbyId=${lobbyId}`)
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`Server responded with ${response.status}: ${errorText}`)
+        console.error(`Error response (${response.status}):`, errorText)
+        throw new Error(`Server responded with ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -191,7 +132,7 @@ useEffect(() => {
       }
     } catch (error) {
       console.error("Error fetching invitations:", error)
-      // Don't show error notification for invitations to avoid confusion
+      showNotification("Failed to load invitations. Please try again.", "error")
     }
   }
 
@@ -210,7 +151,8 @@ useEffect(() => {
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`Server responded with ${response.status}: ${errorText}`)
+        console.error(`Error response (${response.status}):`, errorText)
+        throw new Error(`Server responded with ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -229,11 +171,10 @@ useEffect(() => {
     }
   }
 
-  // Send invitation - SIMPLIFIED VERSION THAT BYPASSES AUTHENTICATION
+  // Send invitation
   const sendInvitation = async (userId: string) => {
     setIsLoading(true)
     try {
-      // Direct API call without authentication checks
       const response = await fetch("/api/lobby/invite", {
         method: "POST",
         headers: {
@@ -247,13 +188,12 @@ useEffect(() => {
 
       const data = await response.json()
 
-      if (response.ok && data.success) {
+      if (data.success) {
         showNotification("Your invitation has been sent successfully.", "success")
         // Refresh invitations
         fetchInvitations()
       } else {
-        showNotification(data.message || "Failed to send invitation. Please try again.", "error")
-        console.error("Invitation error details:", data.details || "No details provided")
+        showNotification(data.error || "Failed to send invitation. Please try again.", "error")
       }
     } catch (error) {
       console.error("Error sending invitation:", error)
@@ -264,7 +204,7 @@ useEffect(() => {
   }
 
   // Respond to invitation
-  const respondToInvitation = async (invitationId: string, accept: boolean) => {
+  const respondToInvitation = async (invitationId: string, status: "accepted" | "declined") => {
     setIsLoading(true)
     try {
       const response = await fetch("/api/lobby/respond-invite", {
@@ -274,16 +214,16 @@ useEffect(() => {
         },
         body: JSON.stringify({
           invitationId,
-          accept,
+          status,
           position: availablePosition,
         }),
       })
 
       const data = await response.json()
 
-      if (response.ok && data.success) {
+      if (data.success) {
         showNotification(
-          data.message || (accept ? "You have joined the lobby." : "You have declined the invitation."),
+          status === "accepted" ? "You have joined the lobby." : "You have declined the invitation.",
           "success",
         )
 
@@ -291,11 +231,11 @@ useEffect(() => {
         fetchInvitations()
 
         // Close sidebar if accepted
-        if (accept) {
+        if (status === "accepted") {
           onClose()
         }
       } else {
-        showNotification(data.message || "Failed to respond to invitation. Please try again.", "error")
+        showNotification(data.error || "Failed to respond to invitation. Please try again.", "error")
       }
     } catch (error) {
       console.error("Error responding to invitation:", error)
@@ -307,7 +247,7 @@ useEffect(() => {
 
   // Retry fetching all users
   const handleRetryFetchAllUsers = () => {
-    setRetryCount((prev) => prev + 1)
+    fetchAllUsers()
   }
 
   if (!isOpen) return null
@@ -362,13 +302,101 @@ useEffect(() => {
         </Button>
       </div>
 
-      <Tabs defaultValue="all" className="flex-1 flex flex-col" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="everyone" className="flex-1 flex flex-col" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 mx-4 mt-4">
+          <TabsTrigger value="everyone">Everyone</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
-          <TabsTrigger value="all">All Users</TabsTrigger>
           <TabsTrigger value="invites">Invites {invitations.length > 0 && `(${invitations.length})`}</TabsTrigger>
         </TabsList>
 
+        {/* EVERYONE TAB - Shows all registered users */}
+        <TabsContent value="everyone" className="flex-1 flex flex-col p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="h-5 w-5 text-purple-400" />
+            <h3 className="text-lg font-medium text-white">All Players</h3>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleRetryFetchAllUsers}
+              disabled={isLoadingAllUsers}
+              className="ml-auto text-purple-400 hover:text-purple-300"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoadingAllUsers ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {isLoadingAllUsers ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-2">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-8 px-4">
+                <div className="bg-red-900/30 border border-red-500 rounded-lg p-4 mb-4 w-full">
+                  <h4 className="text-red-400 font-medium mb-2">Error</h4>
+                  <p className="text-red-300 text-sm mb-2">{error}</p>
+                </div>
+                <Button onClick={handleRetryFetchAllUsers} className="bg-purple-700 hover:bg-purple-600">
+                  Try Again
+                </Button>
+              </div>
+            ) : allUsers.length > 0 ? (
+              <ul className="space-y-2">
+                {allUsers.map((user) => (
+                  <li
+                    key={user.id}
+                    className="flex items-center justify-between p-2 rounded-md bg-gray-800/50 hover:bg-gray-800"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage
+                          src={user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+                          alt={user.username}
+                        />
+                        <AvatarFallback className="bg-purple-700">
+                          {user.username?.charAt(0).toUpperCase() || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white">{user.username || "Unknown User"}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => sendInvitation(user.id)}
+                      disabled={isLoading}
+                      className="bg-purple-700 hover:bg-purple-600"
+                    >
+                      <UserPlus className="h-4 w-4 mr-1" />
+                      Invite
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-center py-8">
+                <UserCircle className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400 mb-4">No other users found.</p>
+                <Button
+                  onClick={handleRetryFetchAllUsers}
+                  variant="outline"
+                  className="border-purple-500 text-purple-400 hover:bg-purple-900/20"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh List
+                </Button>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* SEARCH TAB - For searching specific users */}
         <TabsContent value="search" className="flex-1 flex flex-col p-4">
           <div className="flex gap-2 mb-4">
             <Input
@@ -397,7 +425,10 @@ useEffect(() => {
                   >
                     <div className="flex items-center gap-3">
                       <Avatar>
-                        <AvatarImage src={user.avatar_url || ""} />
+                        <AvatarImage
+                          src={user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+                          alt={user.username}
+                        />
                         <AvatarFallback className="bg-purple-700">
                           {user.username?.charAt(0).toUpperCase() || "?"}
                         </AvatarFallback>
@@ -424,159 +455,65 @@ useEffect(() => {
           </div>
         </TabsContent>
 
-        <TabsContent value="all" className="flex-1 flex flex-col p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="h-5 w-5 text-purple-400" />
-            <h3 className="text-lg font-medium text-white">All Players</h3>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleRetryFetchAllUsers}
-              disabled={isLoadingAllUsers}
-              className="ml-auto text-purple-400 hover:text-purple-300"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoadingAllUsers ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </div>
+        {/* INVITES TAB - Shows pending invitations */}
+        <TabsContent value="invites" className="flex-1 flex flex-col p-4">
+          <h3 className="text-lg font-medium text-white mb-4">Pending Invitations</h3>
 
           <div className="flex-1 overflow-y-auto">
-            {isLoadingAllUsers ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-purple-400">Loading users...</p>
-              </div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4">
-                <div className="bg-red-900/30 border border-red-500 rounded-lg p-4 mb-4 w-full">
-                  <h4 className="text-red-400 font-medium mb-2">Error</h4>
-                  <p className="text-red-300 text-sm mb-2">{error}</p>
-                </div>
-                <Button onClick={handleRetryFetchAllUsers} className="bg-purple-700 hover:bg-purple-600">
-                  Try Again
-                </Button>
-              </div>
-            ) : allUsers.length > 0 ? (
+            {invitations.length > 0 ? (
               <ul className="space-y-2">
-                {allUsers.map((user) => (
-                  <li
-                    key={user.id}
-                    className="flex items-center justify-between p-2 rounded-md bg-gray-800/50 hover:bg-gray-800"
-                  >
+                {invitations.map((invitation) => (
+                  <li key={invitation.id} className="flex items-center justify-between p-2 rounded-md bg-gray-800/50">
                     <div className="flex items-center gap-3">
                       <Avatar>
-                        <AvatarImage src={user.avatar_url || ""} />
+                        <AvatarImage
+                          src={
+                            invitation.sender?.avatar_url ||
+                            `https://api.dicebear.com/7.x/bottts/svg?seed=${invitation.sender?.username}`
+                          }
+                          alt={invitation.sender?.username}
+                        />
                         <AvatarFallback className="bg-purple-700">
-                          {user.username?.charAt(0).toUpperCase() || "?"}
+                          {invitation.sender?.username?.charAt(0).toUpperCase() || "?"}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-white">{user.username || "Unknown User"}</span>
+                      <div className="flex flex-col">
+                        <span className="text-white">{invitation.sender?.username || "Unknown"}</span>
+                        <span className="text-xs text-gray-400">wants to play with you</span>
+                      </div>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => sendInvitation(user.id)}
-                      disabled={isLoading}
-                      className="bg-purple-700 hover:bg-purple-600"
-                    >
-                      <UserPlus className="h-4 w-4 mr-1" />
-                      Invite
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => respondToInvitation(invitation.id, "accepted")}
+                        disabled={isLoading}
+                        className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-green-900/20"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => respondToInvitation(invitation.id, "declined")}
+                        disabled={isLoading}
+                        className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-900/20"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-400 mb-4">No other users found.</p>
-                <Button
-                  onClick={handleRetryFetchAllUsers}
-                  variant="outline"
-                  className="border-purple-500 text-purple-400 hover:bg-purple-900/20"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh List
-                </Button>
+                <p className="text-gray-400 mb-2">No pending invitations.</p>
+                <p className="text-gray-500 text-sm">When someone invites you to play, it will appear here.</p>
               </div>
             )}
           </div>
         </TabsContent>
-
-        <TabsContent value="invites" className="flex-1 flex flex-col p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Mail className="h-5 w-5 text-purple-400" />
-            <h3 className="text-lg font-medium text-white">Invitations</h3>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={fetchInvitations}
-              disabled={isLoading}
-              className="ml-auto text-purple-400 hover:text-purple-300"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </div>
-
-          {!currentUserId ? (
-            <div className="bg-yellow-900/30 border border-yellow-500 rounded-lg p-4 mb-4">
-              <h4 className="text-yellow-400 font-medium mb-2">User ID Not Found</h4>
-              <p className="text-yellow-300 text-sm">
-                We couldn't determine your user ID. Please try logging in again.
-              </p>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto">
-              {invitations.length > 0 ? (
-                <ul className="space-y-2">
-                  {invitations.map((invitation) => (
-                    <li key={invitation.id} className="flex items-center justify-between p-2 rounded-md bg-gray-800/50">
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={invitation.sender_avatar || ""} />
-                          <AvatarFallback className="bg-purple-700">
-                            {invitation.sender_username?.charAt(0).toUpperCase() || "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-white">{invitation.sender_username || "Unknown"}</span>
-                          <span className="text-xs text-gray-400">wants to play with you</span>
-                        </div>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => respondToInvitation(invitation.id, true)}
-                          disabled={isLoading}
-                          className="bg-green-700 hover:bg-green-600"
-                        >
-                          Accept
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => respondToInvitation(invitation.id, false)}
-                          disabled={isLoading}
-                          className="border-red-500 text-red-400 hover:bg-red-900/20"
-                        >
-                          Decline
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-center text-gray-400 py-8">No pending invitations.</p>
-              )}
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
-
-      {/* Debug info */}
-      <div className="p-2 border-t border-purple-800/50 text-xs text-gray-500">
-        <p>User ID: {currentUserId || "Not found"}</p>
-        <p>Lobby ID: {lobbyId}</p>
-      </div>
     </div>
   )
 }

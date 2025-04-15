@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import LobbyContent from "@/components/lobby/lobby-content"
 import ClientOnly from "@/components/client-only"
+import { StoreUserId } from "@/components/lobby/store-user-id"
 
 export default function LobbyPage() {
   return (
@@ -18,6 +19,7 @@ export default function LobbyPage() {
           </div>
         }
       >
+        <StoreUserId />
         <LobbyContent />
       </Suspense>
     </ClientOnly>

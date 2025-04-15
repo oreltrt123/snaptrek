@@ -10,13 +10,6 @@ export async function GET(request: Request) {
     const url = new URL(request.url)
     const userId = url.searchParams.get("userId")
 
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, message: "Missing required parameter: userId" },
-        { status: 400 }
-      )
-    }
-
     // Create Supabase client
     const cookieStore = cookies()
     const supabase = createServerClient(
@@ -37,46 +30,53 @@ export async function GET(request: Request) {
       }
     )
 
-    // Get invitations with sender details
-    const { data: invitations, error } = await supabase
+    // Get all invitations
+    const { data: allInvitations, error: invitationsError } = await supabase
       .from("lobby_invitations")
-      .select(`
-        *,
-        sender:sender_id (
-          username,
-          avatar_url
-        )
-      `)
-      .eq("recipient_id", userId)
-      .eq("status", "pending")
+      .select("*")
       .order("created_at", { ascending: false })
+      .limit(50)
 
-    if (error) {
-      console.error("Error fetching invitations:", error)
-      return NextResponse.json(
-        { success: false, message: "Failed to fetch invitations", error: error.message },
-        { status: 500 }
-      )
+    if (invitationsError) {
+      return NextResponse.json({
+        success: false,
+        message: "Error fetching invitations",
+        error: invitationsError.message
+      })
     }
 
-    // Format the invitations to include sender details
-    const formattedInvitations = invitations.map(invitation => ({
-      id: invitation.id,
-      sender_id: invitation.sender_id,
-      recipient_id: invitation.recipient_id,
-      lobby_id: invitation.lobby_id,
-      status: invitation.status,
-      created_at: invitation.created_at,
-      sender_username: invitation.sender?.username,
-      sender_avatar: invitation.sender?.avatar_url
-    }))
+    // Get RLS policies
+    const { data: rlsPolicies, error: rlsError } = await supabase
+      .rpc('get_policies_for_table', { table_name: 'lobby_invitations' })
+
+    // Get user-specific invitations if userId is provided
+    let userInvitations = null
+    if (userId) {
+      const { data, error } = await supabase
+        .from("lobby_invitations")
+        .select(`
+          *,
+          sender:sender_id (
+            username,
+            avatar_url
+          )
+        `)
+        .eq("recipient_id", userId)
+        .order("created_at", { ascending: false })
+
+      if (!error) {
+        userInvitations = data
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      invitations: formattedInvitations
+      allInvitations,
+      userInvitations,
+      rlsPolicies
     })
   } catch (error) {
-    console.error("Error in invitations API:", error)
+    console.error("Error in debug-invitations API:", error)
     return NextResponse.json(
       { success: false, message: "Server error: " + (error instanceof Error ? error.message : "Unknown error") },
       { status: 500 }

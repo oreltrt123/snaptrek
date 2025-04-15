@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
+    // Create Supabase client
     const cookieStore = cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -26,54 +27,83 @@ export async function GET(request: Request) {
       },
     )
 
-    // Check authentication
+    // Get current user session
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession()
 
-    // Test database connection with a simple query that won't fail
-    const { data: testData, error: testError } = await supabase
+    // Check if profiles table exists and count users
+    const { data: profilesCount, error: profilesError } = await supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
 
-    // Get session details safely
-    const sessionDetails = session
-      ? {
-          user: {
-            id: session.user.id,
-            email: session.user.email,
-            role: session.user.role,
-          },
-          expiresAt: session.expires_at,
-        }
-      : null
+    // Check if lobby_invitations table exists and count invitations
+    const { data: invitationsCount, error: invitationsError } = await supabase
+      .from("lobby_invitations")
+      .select("*", { count: "exact", head: true })
+
+    // Check if lobby_members table exists and count members
+    const { data: membersCount, error: membersError } = await supabase
+      .from("lobby_members")
+      .select("*", { count: "exact", head: true })
+
+    // Check if the trigger exists
+    const { data: triggerExists, error: triggerError } = await supabase.rpc("check_trigger_exists", {
+      trigger_name: "on_auth_user_created",
+      table_name: "users",
+      schema_name: "auth",
+    })
+
+    // Get database tables
+    const { data: tables, error: tablesError } = await supabase
+      .from("information_schema.tables")
+      .select("table_name")
+      .eq("table_schema", "public")
 
     return NextResponse.json({
-      timestamp: new Date().toISOString(),
       auth: {
-        authenticated: !!session,
-        sessionDetails: sessionDetails,
+        authenticated: !!session?.user,
+        user: session?.user
+          ? {
+              id: session.user.id,
+              email: session.user.email,
+              metadata: session.user.user_metadata,
+            }
+          : null,
+        error: sessionError ? sessionError.message : null,
       },
       database: {
-        connectionTest: testError ? "Failed: " + testError.message : "Success",
-        userCount: testData?.count || 0,
+        tables: tables?.map((t) => t.table_name) || [],
+        tablesError: tablesError ? tablesError.message : null,
+        profiles: {
+          exists: !profilesError || !profilesError.message.includes("does not exist"),
+          count: profilesCount?.count || 0,
+          error: profilesError ? profilesError.message : null,
+        },
+        lobby_invitations: {
+          exists: !invitationsError || !invitationsError.message.includes("does not exist"),
+          count: invitationsCount?.count || 0,
+          error: invitationsError ? invitationsError.message : null,
+        },
+        lobby_members: {
+          exists: !membersError || !membersError.message.includes("does not exist"),
+          count: membersCount?.count || 0,
+          error: membersError ? membersError.message : null,
+        },
+        trigger: {
+          exists: !!triggerExists,
+          error: triggerError ? triggerError.message : null,
+        },
       },
-      cookies: {
-        count: cookieStore.getAll().length,
-      },
-      environment: {
-        nodeEnv: process.env.NODE_ENV,
-        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        hasSupabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      },
+      environment: process.env.NODE_ENV,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? "Set" : "Missing",
+      supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "Set" : "Missing",
     })
   } catch (error) {
     console.error("Error in debug endpoint:", error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
+      { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 },
     )
   }

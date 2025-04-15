@@ -2,19 +2,20 @@ import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
-// Add this line to prevent static generation
+// Force dynamic to prevent caching
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
-    const { invitationId, status } = await request.json()
+    // Parse the request body
+    const { invitationId, accept, position } = await request.json()
 
-    if (!invitationId || !status) {
-      return NextResponse.json({ error: "Invitation ID and status are required" }, { status: 400 })
-    }
-
-    if (!["accepted", "rejected"].includes(status)) {
-      return NextResponse.json({ error: "Status must be 'accepted' or 'rejected'" }, { status: 400 })
+    // Validate required fields
+    if (!invitationId) {
+      return NextResponse.json(
+        { success: false, message: "Missing required field: invitationId" },
+        { status: 400 }
+      )
     }
 
     // Create Supabase client
@@ -34,75 +35,104 @@ export async function POST(request: Request) {
             cookieStore.set({ name, value: "", ...options, maxAge: 0 })
           },
         },
-      },
+      }
     )
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get the invitation
+    // Get the invitation details first
     const { data: invitation, error: getError } = await supabase
       .from("lobby_invitations")
-      .select("id, recipient_id, lobby_id")
+      .select("*")
       .eq("id", invitationId)
       .single()
 
     if (getError) {
       console.error("Error getting invitation:", getError)
-      return NextResponse.json({ error: "Failed to get invitation" }, { status: 500 })
+      return NextResponse.json(
+        { success: false, message: "Failed to get invitation details" },
+        { status: 500 }
+      )
     }
 
     if (!invitation) {
-      return NextResponse.json({ error: "Invitation not found" }, { status: 404 })
-    }
-
-    // Check if user is the recipient
-    if (invitation.recipient_id !== user.id) {
-      return NextResponse.json({ error: "You are not the recipient of this invitation" }, { status: 403 })
+      return NextResponse.json(
+        { success: false, message: "Invitation not found" },
+        { status: 404 }
+      )
     }
 
     // Update invitation status
-    const { error: updateError } = await supabase.from("lobby_invitations").update({ status }).eq("id", invitationId)
+    const { error: updateError } = await supabase
+      .from("lobby_invitations")
+      .update({
+        status: accept ? "accepted" : "declined",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", invitationId)
 
     if (updateError) {
       console.error("Error updating invitation:", updateError)
-      return NextResponse.json({ error: "Failed to update invitation" }, { status: 500 })
+      return NextResponse.json(
+        { success: false, message: "Failed to update invitation status" },
+        { status: 500 }
+      )
     }
 
-    // If accepted, add user to lobby
-    if (status === "accepted") {
-      // Get the next available position
-      const { data: positions, error: posError } = await supabase
+    // If accepted, add to lobby members
+    if (accept) {
+      // Check if already a member
+      const { data: existingMember, error: checkError } = await supabase
         .from("lobby_members")
-        .select("position")
+        .select("*")
         .eq("lobby_id", invitation.lobby_id)
-        .order("position", { ascending: false })
-        .limit(1)
+        .eq("user_id", invitation.recipient_id)
+        .single()
 
-      const nextPosition = positions && positions.length > 0 ? positions[0].position + 1 : 0
+      if (checkError && checkError.code !== "PGRST116") { // PGRST116 is "no rows returned" which is expected
+        console.error("Error checking existing member:", checkError)
+      }
 
-      // Add user to lobby
-      const { error: joinError } = await supabase.from("lobby_members").insert({
-        lobby_id: invitation.lobby_id,
-        user_id: user.id,
-        position: nextPosition,
-      })
+      if (existingMember) {
+        // Update position if already a member
+        const { error: updateMemberError } = await supabase
+          .from("lobby_members")
+          .update({ position: position || 1 })
+          .eq("lobby_id", invitation.lobby_id)
+          .eq("user_id", invitation.recipient_id)
 
-      if (joinError) {
-        console.error("Error joining lobby:", joinError)
-        return NextResponse.json({ error: "Failed to join lobby" }, { status: 500 })
+        if (updateMemberError) {
+          console.error("Error updating member position:", updateMemberError)
+        }
+      } else {
+        // Insert new member
+        const { error: insertError } = await supabase
+          .from("lobby_members")
+          .insert({
+            lobby_id: invitation.lobby_id,
+            user_id: invitation.recipient_id,
+            position: position || 1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+
+        if (insertError) {
+          console.error("Error adding member to lobby:", insertError)
+          return NextResponse.json(
+            { success: false, message: "Failed to add member to lobby" },
+            { status: 500 }
+          )
+        }
       }
     }
 
-    return NextResponse.json({ success: true, status })
+    return NextResponse.json({
+      success: true,
+      message: accept ? "Invitation accepted" : "Invitation declined"
+    })
   } catch (error) {
     console.error("Error in respond-invite API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "Server error: " + (error instanceof Error ? error.message : "Unknown error") },
+      { status: 500 }
+    )
   }
 }

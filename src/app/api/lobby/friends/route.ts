@@ -7,13 +7,6 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    const url = new URL(request.url)
-    const query = url.searchParams.get("query")
-
-    if (!query) {
-      return NextResponse.json({ error: "Search query is required" }, { status: 400 })
-    }
-
     // Create Supabase client
     const cookieStore = cookies()
     const supabase = createServerClient(
@@ -39,25 +32,27 @@ export async function GET(request: Request) {
       data: { session },
     } = await supabase.auth.getSession()
 
-    // Search for users by username
-    const { data: users, error } = await supabase
+    if (!session) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    // Get user's friends from the database
+    // For now, we'll use the profiles table since we don't have a dedicated friends table
+    // In a real implementation, you would have a friends table with user_id and friend_id
+    const { data: friends, error } = await supabase
       .from("profiles")
       .select("id, username, avatar_url")
-      .ilike("username", `%${query}%`)
-      .order("username")
+      .neq("id", session.user.id) // Exclude the current user
       .limit(20)
 
     if (error) {
-      console.error("Error searching users:", error)
-      return NextResponse.json({ error: "Failed to search users" }, { status: 500 })
+      console.error("Error fetching friends:", error)
+      return NextResponse.json({ error: "Failed to fetch friends" }, { status: 500 })
     }
 
-    // Filter out the current user if logged in
-    const filteredUsers = session ? users.filter((user) => user.id !== session.user.id) : users
-
-    return NextResponse.json({ users: filteredUsers })
+    return NextResponse.json({ friends })
   } catch (error) {
-    console.error("Error in search-users API:", error)
+    console.error("Error in friends API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
