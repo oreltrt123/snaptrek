@@ -13,12 +13,15 @@ import "@/style/lobby.css"
 // Import the GameModeSelector component normally since it doesn't use Three.js
 import { GameModeSelector } from "@/components/game/game-mode-selector"
 
-// Dynamically import the LobbySceneWithCharacter component with SSR disabled
-const LobbySceneWithCharacter = dynamic(
-  () =>
-    import("@/components/game/lobby-scene-with-character").then((mod) => ({ default: mod.LobbySceneWithCharacter })),
-  { ssr: false, loading: () => null },
-)
+// Dynamically import the LobbyScene component with SSR disabled and error handling
+const LobbyScene = dynamic(() => import("@/components/game/lobby-scene").then((mod) => ({ default: mod.LobbyScene })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full">
+      <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  ),
+})
 
 // Define game mode types
 interface GameMode {
@@ -34,6 +37,7 @@ export default function LobbyContent() {
   const router = useRouter()
   const [showNotification, setShowNotification] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Set mounted state to true when component mounts
   useEffect(() => {
@@ -47,6 +51,7 @@ export default function LobbyContent() {
 
         if (error) {
           console.log("Session check error:", error.message)
+          setError("Authentication error: " + error.message)
           router.push("/login")
           return
         }
@@ -59,7 +64,8 @@ export default function LobbyContent() {
         setUser(data.session.user)
         setLoading(false)
       } catch (err) {
-        console.log("Error checking session")
+        console.log("Error checking session:", err)
+        setError("Session error: " + (err instanceof Error ? err.message : String(err)))
         router.push("/login")
       }
     }
@@ -136,12 +142,26 @@ export default function LobbyContent() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 max-w-md">
+          <h2 className="text-xl font-bold mb-4">Error Loading Lobby</h2>
+          <p className="mb-4">{error}</p>
+          <Button onClick={() => router.push("/login")} className="bg-red-600 hover:bg-red-700">
+            Return to Login
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col relative">
       {/* 3D Scene Container - Full screen */}
       <div className="absolute inset-0 z-0">
         {/* Only render the 3D scene when the component is mounted */}
-        {mounted && <LobbySceneWithCharacter />}
+        {mounted && <LobbyScene />}
       </div>
 
       {/* UI Layer */}

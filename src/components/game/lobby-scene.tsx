@@ -1,18 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
 import { OrbitControls, Environment, Box, Sphere } from "@react-three/drei"
-
-// Circular platform for the character to stand on
-function Platform() {
-  return (
-    <mesh position={[0, 0, 0]} receiveShadow>
-      <cylinderGeometry args={[0.8, 0.8, 0.1, 32]} />
-      <meshStandardMaterial color="#a855f7" metalness={0.6} roughness={0.2} />
-    </mesh>
-  )
-}
+import { ErrorBoundary } from "react-error-boundary"
 
 // Simple placeholder character
 function PlaceholderCharacter() {
@@ -65,6 +56,30 @@ function SceneSetup() {
   return null
 }
 
+// Circular platform for the character to stand on
+function Platform() {
+  return (
+    <mesh position={[0, 0, 0]} receiveShadow>
+      <cylinderGeometry args={[0.8, 0.8, 0.1, 32]} />
+      <meshStandardMaterial color="#a855f7" metalness={0.6} roughness={0.2} />
+    </mesh>
+  )
+}
+
+// Error fallback for the 3D scene
+function SceneErrorFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full bg-gray-900 text-white p-4">
+      <div className="text-center">
+        <h3 className="text-lg font-bold mb-2">3D Scene Unavailable</h3>
+        <p className="text-sm text-gray-300">
+          Your browser may not support WebGL or there was an error loading the 3D scene.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // Main lobby environment
 function LobbyEnvironment() {
   return (
@@ -91,26 +106,31 @@ function LobbyEnvironment() {
 }
 
 export function LobbyScene() {
-  // We don't need the state or effect at all since we're not using the selectedCharacter
-  // and we're not passing it to any child components
+  const [hasError, setHasError] = useState(false)
+
+  if (hasError) {
+    return <SceneErrorFallback />
+  }
 
   return (
     <div className="w-full h-full absolute inset-0">
-      <Canvas shadows>
-        <LobbyEnvironment />
-        <Environment preset="night" />
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          minPolarAngle={Math.PI / 4}
-          maxPolarAngle={Math.PI / 2.2}
-          minAzimuthAngle={-Math.PI / 4}
-          maxAzimuthAngle={Math.PI / 4}
-          enableDamping
-          dampingFactor={0.05}
-          target={[0, 0.2, 0]} // Look at the character's center
-        />
-      </Canvas>
+      <ErrorBoundary FallbackComponent={SceneErrorFallback} onError={() => setHasError(true)}>
+        <Canvas shadows>
+          <LobbyEnvironment />
+          <Environment preset="night" />
+          <OrbitControls
+            enableZoom={false}
+            enablePan={false}
+            minPolarAngle={Math.PI / 4}
+            maxPolarAngle={Math.PI / 2.2}
+            minAzimuthAngle={-Math.PI / 4}
+            maxAzimuthAngle={Math.PI / 4}
+            enableDamping
+            dampingFactor={0.05}
+            target={[0, 0.2, 0]} // Look at the character's center
+          />
+        </Canvas>
+      </ErrorBoundary>
     </div>
   )
 }
