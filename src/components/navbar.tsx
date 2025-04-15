@@ -86,18 +86,18 @@ export default function Navbar() {
           SnapTrek
         </Link>
         <div className="hidden md:flex gap-8 items-center">
-          <Link href="/docs" className="text-gray-300 hover:text-white group relative inline-block">
+          {/* <Link href="/docs" className="text-gray-300 hover:text-white group relative inline-block">
             Docs
             <span className="absolute inset-0 border-b border-white scale-0 group-hover:scale-100 transition-transform origin-left"></span>
-          </Link>
-          <Link href="/dashboard/premium" className="text-gray-300 hover:text-white group relative inline-block">
-            Premium
+          </Link> */}
+          <Link href="/store" className="text-gray-300 hover:text-white group relative inline-block">
+            Snap Credits
             <span className="absolute inset-0 border-b border-white scale-0 group-hover:scale-100 transition-transform origin-left"></span>
           </Link>
-          <Link href="/blog" className="text-gray-300 hover:text-white group relative inline-block">
+          {/* <Link href="/blog" className="text-gray-300 hover:text-white group relative inline-block">
             Blog
             <span className="absolute inset-0 border-b border-white scale-0 group-hover:scale-100 transition-transform origin-left"></span>
-          </Link>
+          </Link> */}
         </div>
         <div className="flex gap-4 items-center">
           {loading ? (

@@ -35,3 +35,11 @@
         linear-gradient(90deg, transparent 24%, var(--color) 25%, var(--color) 26%, transparent 27%,transparent 74%, var(--color) 75%, var(--color) 76%, transparent 77%,transparent);
     background-size: 55px 55px;
   }
+  .text1334 {
+    color: white;
+    border-radius: 30px;
+  }
+  .text13345 {
+    border: 3px solid rgb(80, 80, 80);
+    color: rgb(80, 80, 80);
+  }

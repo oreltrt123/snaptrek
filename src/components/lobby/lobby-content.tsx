@@ -189,19 +189,16 @@ export default function LobbyContent() {
         {/* Game Mode and Play Buttons */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
           {/* Mode Button */}
-          <div className="flex items-center gap-3">
-            <button onClick={handleOpenModeSelector} className="tab bg-cyan-600 hover:bg-cyan-700">
-              <Settings className="mr-2 h-5 w-5" />
-              MODE
-            </button>
-
-            {/* Selected Mode Display */}
-            {selectedMode && (
-              <div className="px-4 py-2 bg-purple-900/70 rounded-lg border border-purple-500 text-white font-semibold">
+          <div className="absolute bottom-32 left-1/2 -translate-x-1/2">
+        <button onClick={handleOpenModeSelector} className="tab2">
+           MODE
+           {selectedMode && (
+              <div className="px-4 py-2 bg-none rounded-lg borde text-white font-semibold">
                 {selectedMode.name}
               </div>
             )}
-          </div>
+        </button>
+      </div>
 
           {/* Play Button */}
           <button onClick={handlePlay} className="tab">

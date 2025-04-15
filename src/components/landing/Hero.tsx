@@ -1,14 +1,14 @@
 "use client"
 
 import type { Variants } from "framer-motion"
-import { Globe } from "lucide-react"
+import { Gamepad2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedTitle } from "@/components/motion/AnimatedTitle"
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList"
 import { AnimatedHeroDecor } from "@/components/motion/AnimatedHeroDecor"
 import Link from "next/link"
-import { Camera, Map, Share2, Users } from "lucide-react"
-import "../../styles/navbar.css";
+import { Crosshair, Shield, Trophy, Users } from "lucide-react"
+import "../../styles/navbar.css"
 
 const list = {
   visible: {
@@ -34,23 +34,23 @@ export function Hero() {
       <AnimatedTitle>
         <h1 className="flex w-full flex-col items-center justify-center gap-2 text-balance py-6 text-center font-display text-3xl font-bold capitalize leading-normal tracking-tighter sm:text-4xl sm:leading-snug md:gap-4 md:text-6xl">
           <span>
-            Share your journey, connect—made to{" "}
-            <span className="rounded-full border border-highlight/25 bg-highlight/50 px-[0.35em] py-[0.125em] text-highlight-depth dark:bg-highlight/85 dark:text-background">
-              inspire
+            Drop in, battle, survive—made to{" "}
+            <span className="text13345 rounded-full  px-[0.35em] py-[0.125em]">
+              dominate
             </span>
           </span>
           <span className="flex flex-wrap items-center justify-center">
-            others{" "}
+            the arena{" "}
             <span className="group relative ml-[0.25em] flex h-[1.35em] w-[1.5em] items-center justify-center rounded-full bg-secondary/30 dark:text-secondary">
-              <Globe className="z-1 h-[1.25em] w-[1.25em] group-hover:animate-spin-slow" strokeWidth={2.15} />
+              <Gamepad2 className="z-1 h-[1.25em] w-[1.25em] group-hover:animate-pulse" strokeWidth={2.15} />
             </span>
             <span className="mr-[0.25em]">
-              <span className="sr-only">on</span>
+              <span className="sr-only">in</span>
               <span className="lowercase" aria-hidden="true">
-                n
+                n 
               </span>
             </span>{" "}
-            the go.
+            SnapTrek.
           </span>
         </h1>
       </AnimatedTitle>
@@ -59,14 +59,14 @@ export function Hero() {
           <AnimatedListItem variants={item}>
             <Link href={"/sign-up"}>
               <button className="w-full">
-                <span className="truncate">Join SnapTrek</span>
+                <span className="truncate">Battle Pass Access</span>
               </button>
             </Link>
           </AnimatedListItem>
           <AnimatedListItem variants={item}>
-            <Link href={"/sign-in"}>
-              <Button size="lg" className="w-full text-secondary">
-                <span className="text-primary hover:underline">I already have an account</span>
+            <Link href={"/login"}>
+              <Button size="lg" className="w-full text-secondary text1334">
+                <span className="text-primary hover:underline text1334">I already have a squad</span>
               </Button>
             </Link>
           </AnimatedListItem>
@@ -75,21 +75,21 @@ export function Hero() {
       <div className="absolute -left-[2%] top-[13%] -z-1 sm:left-[10%]">
         <AnimatedHeroDecor className="origin-bottom-right" delay={0.8}>
           <div className="size-20 -rotate-12 rounded-lg bg-gradient-to-br from-highlight/70  to-transparent p-2 text-background sm:size-24 lg:size-32">
-            <Camera className="h-full w-full" />
+            <Crosshair className="h-full w-full" />
           </div>
         </AnimatedHeroDecor>
       </div>
       <div className="absolute right-[10%] top-[13%] -z-1 max-md:hidden">
         <AnimatedHeroDecor className="origin-bottom-left" move={60} delay={1}>
           <div className="size-24 rotate-12 rounded-lg bg-gradient-to-bl from-highlight/70  to-transparent p-2 text-background lg:size-32">
-            <Share2 className="h-full w-full" />
+            <Trophy className="h-full w-full" />
           </div>
         </AnimatedHeroDecor>
       </div>
       <div className="absolute bottom-[10%] left-[10%] -z-1 max-md:hidden">
         <AnimatedHeroDecor className="origin-top-right" move={60} delay={1.2}>
           <div className="size-24 -rotate-6 rounded-lg bg-gradient-to-r from-secondary/30  to-transparent p-2 text-background lg:size-32">
-            <Map className="h-full w-full" />
+            <Shield className="h-full w-full" />
           </div>
         </AnimatedHeroDecor>
       </div>
@@ -103,4 +103,3 @@ export function Hero() {
     </section>
   )
 }
-
