@@ -8,13 +8,22 @@ export function GameControls() {
   const [showControls, setShowControls] = useState(true)
 
   // Simulate key press for mobile controls
-  const simulateKeyPress = (key: string, pressed: boolean) => {
+  const simulateKeyPress = (code: string, pressed: boolean) => {
+    // Create and dispatch a custom keyboard event
     const event = new KeyboardEvent(pressed ? "keydown" : "keyup", {
-      key,
-      code: key,
+      code: code,
+      key: code.replace("Key", "").toLowerCase(),
       bubbles: true,
     })
     document.dispatchEvent(event)
+    window.dispatchEvent(event)
+
+    // Also update the global keysPressed object directly
+    // This is a backup in case the event doesn't propagate correctly
+    const customEvent = new CustomEvent("game-control-pressed", {
+      detail: { code, pressed },
+    })
+    window.dispatchEvent(customEvent)
   }
 
   return (

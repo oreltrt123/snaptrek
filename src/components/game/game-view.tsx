@@ -5,6 +5,8 @@ import { GameHUD } from "./game-hud"
 import { GamePlayerCounter } from "./game-player-counter"
 import { GameControls } from "./game-controls"
 import { GameInstructions } from "./game-instructions"
+import { KeyboardDebug } from "./keyboard-debug"
+import { MovementDebug } from "./movement-debug"
 import dynamic from "next/dynamic"
 
 // Dynamically import the 3D game scene to avoid SSR issues
@@ -99,12 +101,16 @@ export function GameView({ mode, gameId, userId }: GameViewProps) {
       {/* Game Instructions */}
       <GameInstructions />
 
+      {/* Keyboard Debug */}
+      <KeyboardDebug />
+
+      {/* Movement Debug */}
+      <MovementDebug />
+
       {/* Game Controls - for mobile devices */}
-      {isMobile && (
-        <div className="absolute bottom-0 left-0 right-0 z-10">
-          <GameControls />
-        </div>
-      )}
+      <div className="absolute bottom-0 left-0 right-0 z-10">
+        <GameControls />
+      </div>
     </>
   )
 }

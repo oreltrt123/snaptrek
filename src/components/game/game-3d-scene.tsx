@@ -2,83 +2,117 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { OrbitControls, Environment, KeyboardControls, useKeyboardControls } from "@react-three/drei"
+import { OrbitControls, Environment } from "@react-three/drei"
 import * as THREE from "three"
-import { CharacterModel } from "./character-model"
 import { ErrorBoundary } from "react-error-boundary"
 
-// Define keyboard controls
-const keyboardMap = [
-  { name: "forward", keys: ["ArrowUp", "KeyW"] },
-  { name: "backward", keys: ["ArrowDown", "KeyS"] },
-  { name: "left", keys: ["ArrowLeft", "KeyA"] },
-  { name: "right", keys: ["ArrowRight", "KeyD"] },
-  { name: "jump", keys: ["Space"] },
-  { name: "run", keys: ["ShiftLeft"] },
-]
-
-// Character controller with WASD movement
-function CharacterController({ characterId = "default" }) {
+// Simple character component with direct movement
+function PlayerCharacter({ characterId = "default" }) {
+  const { scene } = useGLTF(CHARACTER_MODELS[characterId] || CHARACTER_MODELS.default)
   const characterRef = useRef<THREE.Group>(null)
-  const [, get] = useKeyboardControls()
   const [position, setPosition] = useState(new THREE.Vector3(0, 0, 0))
   const [rotation, setRotation] = useState(0)
-  const velocity = useRef(new THREE.Vector3())
-  const direction = useRef(new THREE.Vector3())
+  const keysPressed = useRef<{ [key: string]: boolean }>({})
 
-  // Handle character movement
-  useFrame((state, delta) => {
-    if (!characterRef.current) return
-
-    // Get keyboard state
-    const { forward, backward, left, right, run } = get()
-
-    // Calculate movement speed
-    const speed = run ? 5 : 2.5
-    const moveSpeed = speed * delta
-
-    // Reset direction
-    direction.current.set(0, 0, 0)
-
-    // Set direction based on keys
-    if (forward) direction.current.z = -1
-    if (backward) direction.current.z = 1
-    if (left) direction.current.x = -1
-    if (right) direction.current.x = 1
-
-    // Normalize direction vector
-    if (direction.current.length() > 0) {
-      direction.current.normalize()
-
-      // Calculate new position
-      const newPosition = position.clone()
-      newPosition.x += direction.current.x * moveSpeed
-      newPosition.z += direction.current.z * moveSpeed
-
-      // Update position
-      setPosition(newPosition)
-
-      // Calculate rotation to face movement direction
-      if (direction.current.x !== 0 || direction.current.z !== 0) {
-        const angle = Math.atan2(direction.current.x, direction.current.z)
-        setRotation(angle)
-      }
+  // Set up keyboard listeners
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      keysPressed.current[e.code] = true
     }
 
-    // Apply position and rotation to character
-    characterRef.current.position.copy(position)
-    characterRef.current.rotation.y = rotation
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keysPressed.current[e.code] = false
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    window.addEventListener("keyup", handleKeyUp)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+    }
+  }, [])
+
+  // Handle movement directly in the frame update
+  useFrame((_, delta) => {
+    if (!characterRef.current) return
+
+    const moveSpeed = keysPressed.current["ShiftLeft"] ? 5 * delta : 2 * delta
+    const newPosition = position.clone()
+    let newRotation = rotation
+    let moved = false
+
+    // Forward/backward movement
+    if (keysPressed.current["KeyW"] || keysPressed.current["ArrowUp"]) {
+      newPosition.x += Math.sin(rotation) * moveSpeed
+      newPosition.z += Math.cos(rotation) * moveSpeed
+      moved = true
+    }
+
+    if (keysPressed.current["KeyS"] || keysPressed.current["ArrowDown"]) {
+      newPosition.x -= Math.sin(rotation) * moveSpeed
+      newPosition.z -= Math.cos(rotation) * moveSpeed
+      moved = true
+    }
+
+    // Left/right rotation
+    if (keysPressed.current["KeyA"] || keysPressed.current["ArrowLeft"]) {
+      newRotation += 2 * delta
+      moved = true
+    }
+
+    if (keysPressed.current["KeyD"] || keysPressed.current["ArrowRight"]) {
+      newRotation -= 2 * delta
+      moved = true
+    }
+
+    // Update position and rotation
+    if (moved) {
+      setPosition(newPosition)
+      setRotation(newRotation)
+
+      // Log movement for debugging
+      console.log("Character moved:", newPosition, newRotation)
+
+      // Dispatch custom event for movement debug
+      const event = new CustomEvent("character-moved", {
+        detail: { position: newPosition, rotation: newRotation },
+      })
+      window.dispatchEvent(event)
+    }
+
+    // Apply position and rotation to the character
+    characterRef.current.position.copy(newPosition)
+    characterRef.current.rotation.y = newRotation
   })
 
+  // Clone the model to avoid sharing issues
+  const model = scene.clone()
+
   return (
-    <group ref={characterRef} position={[0, 0, 0]}>
-      {/* Character model */}
-      <group scale={[1.5, 1.5, 1.5]}>
-        <CharacterModel characterId={characterId} />
-      </group>
+    <group ref={characterRef} position={position} rotation={[0, rotation, 0]}>
+      {/* The character model */}
+      <primitive object={model} scale={0.5} />
     </group>
   )
 }
+
+// Map of character IDs to their GLB file paths
+const CHARACTER_MODELS = {
+  default: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+  char1: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+  char2: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+  char3: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+  char4: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+  char5: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+  char6: "/assets/3d/67fd09ffe6ca40145d1c2b8a.glb",
+  char7: "/assets/3d/67fd09ffe6ca40145d1c2b8a2.glb",
+}
+
+// Preload all models
+Object.values(CHARACTER_MODELS).forEach((path) => {
+  useGLTF.preload(path)
+})
 
 // Ground plane
 function Ground() {
@@ -96,17 +130,17 @@ function Ground() {
 // Camera that follows the player
 function FollowCamera() {
   const { camera } = useThree()
+  const [target] = useState(new THREE.Vector3(0, 0, 0))
 
   useEffect(() => {
-    // Set initial camera position
     camera.position.set(0, 5, 10)
-    camera.lookAt(0, 0, 0)
-  }, [camera])
+    camera.lookAt(target)
+  }, [camera, target])
 
   return null
 }
 
-// Error fallback for the 3D scene
+// Error fallback
 function SceneErrorFallback() {
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gray-900 text-white p-4">
@@ -120,7 +154,7 @@ function SceneErrorFallback() {
   )
 }
 
-// Main game scene component
+// Main component
 export default function Game3DScene({ mode, userId }: { mode: string; userId: string }) {
   const [selectedCharacter, setSelectedCharacter] = useState("default")
 
@@ -137,35 +171,36 @@ export default function Game3DScene({ mode, userId }: { mode: string; userId: st
 
   return (
     <ErrorBoundary FallbackComponent={SceneErrorFallback}>
-      <KeyboardControls map={keyboardMap}>
-        <Canvas shadows>
-          {/* Lighting */}
-          <ambientLight intensity={0.7} />
-          <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+      <Canvas shadows>
+        {/* Lighting */}
+        <ambientLight intensity={0.7} />
+        <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
 
-          {/* Environment */}
-          <Environment preset="sunset" />
+        {/* Environment */}
+        <Environment preset="sunset" />
 
-          {/* Ground */}
-          <Ground />
+        {/* Ground */}
+        <Ground />
 
-          {/* Character with WASD controls */}
-          <CharacterController characterId={selectedCharacter} />
+        {/* Player Character with direct movement */}
+        <PlayerCharacter characterId={selectedCharacter} />
 
-          {/* Camera */}
-          <FollowCamera />
+        {/* Camera */}
+        <FollowCamera />
 
-          {/* Controls */}
-          <OrbitControls
-            enableZoom={true}
-            enablePan={false}
-            minPolarAngle={Math.PI / 6}
-            maxPolarAngle={Math.PI / 2}
-            minDistance={5}
-            maxDistance={15}
-          />
-        </Canvas>
-      </KeyboardControls>
+        {/* Controls */}
+        <OrbitControls
+          enableZoom={true}
+          enablePan={false}
+          minPolarAngle={Math.PI / 6}
+          maxPolarAngle={Math.PI / 2}
+          minDistance={5}
+          maxDistance={15}
+        />
+      </Canvas>
     </ErrorBoundary>
   )
 }
+
+// Import missing dependencies
+import { useGLTF } from "@react-three/drei"
