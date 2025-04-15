@@ -204,6 +204,7 @@ export default function LockerContent() {
     if (typeof window !== "undefined") {
       // Save to localStorage for persistence across page refreshes
       localStorage.setItem("selectedCharacter", selectedCharacter)
+      console.log("Saved selected character to localStorage:", selectedCharacter)
 
       // Set a flag in sessionStorage to indicate we're coming from the locker
       sessionStorage.setItem("fromLocker", "true")

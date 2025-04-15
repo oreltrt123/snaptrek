@@ -1,46 +1,31 @@
 "use client"
 
-import { useEffect } from "react"
-import { Canvas, useThree } from "@react-three/fiber"
-import { OrbitControls, Environment, Box, Sphere } from "@react-three/drei"
+import { useEffect, useState, useRef } from "react"
+import { Canvas, useThree, useFrame } from "@react-three/fiber"
+import { OrbitControls, Environment } from "@react-three/drei"
+import { CharacterModel } from "@/components/game/character-model"
+import type { Group } from "three"
+import * as THREE from "three"
 import { ErrorBoundary } from "react-error-boundary"
 
-// Scene components that must be used inside Canvas
-function SceneContent() {
+// Circular platform for the character to stand on
+function Platform() {
+  const platformRef = useRef<THREE.Mesh>(null)
+
+  // Add subtle animation to the platform
+  useFrame((state) => {
+    if (platformRef.current) {
+      // Gentle pulsing effect
+      const scale = 1 + Math.sin(state.clock.getElapsedTime() * 0.5) * 0.02
+      platformRef.current.scale.set(scale, 1, scale)
+    }
+  })
+
   return (
-    <>
-      {/* Camera setup */}
-      <SceneSetup />
-
-      {/* Lighting */}
-      <ambientLight intensity={0.7} />
-      <spotLight position={[0, 3, 3]} intensity={1} color="#ffffff" angle={0.6} penumbra={0.5} castShadow />
-      <spotLight position={[3, 3, 0]} intensity={0.8} color="#a855f7" angle={0.6} penumbra={0.5} castShadow />
-      <spotLight position={[-3, 3, 0]} intensity={0.8} color="#3b82f6" angle={0.6} penumbra={0.5} castShadow />
-
-      {/* Background */}
-      <BackgroundEnvironment />
-
-      {/* Platform */}
-      <Platform />
-
-      {/* Character */}
-      <PlaceholderCharacter />
-    </>
-  )
-}
-
-// Simple placeholder character
-function PlaceholderCharacter() {
-  return (
-    <group position={[0, 0.2, 0]} rotation={[0, Math.PI, 0]}>
-      <Box args={[0.5, 1, 0.25]} position={[0, 0.5, 0]}>
-        <meshStandardMaterial color="#6d28d9" />
-      </Box>
-      <Sphere args={[0.25, 16, 16]} position={[0, 1.25, 0]}>
-        <meshStandardMaterial color="#8b5cf6" />
-      </Sphere>
-    </group>
+    <mesh ref={platformRef} position={[0, 0, 0]} receiveShadow>
+      <cylinderGeometry args={[0.8, 0.8, 0.1, 32]} />
+      <meshStandardMaterial color="#a855f7" metalness={0.6} roughness={0.2} />
+    </mesh>
   )
 }
 
@@ -73,21 +58,81 @@ function SceneSetup() {
   const { camera } = useThree()
 
   useEffect(() => {
-    // Adjust camera position to see the character and platform properly
-    camera.position.set(0, 1.0, 3.5)
-    camera.lookAt(0, 0.2, 0)
+    // Adjust camera position to see the character better - focus more on upper body
+    camera.position.set(0, 0.5, 3.5)
+    camera.lookAt(0, 0, 0)
   }, [camera])
 
   return null
 }
 
-// Circular platform for the character to stand on
-function Platform() {
+// Character with animation
+function AnimatedCharacter({ characterId }: { characterId: string }) {
+  const groupRef = useRef<Group>(null)
+  const rotationRef = useRef(0)
+  const timeRef = useRef(0)
+
+  // Enhanced idle animation with more noticeable movements
+  useFrame((state, delta) => {
+    if (groupRef.current) {
+      timeRef.current += delta
+
+      // 1. Continuous rotation - make the character slowly turn around
+      rotationRef.current += delta * 0.2 // Slow rotation
+      groupRef.current.rotation.y = rotationRef.current
+
+      // 2. Bobbing up and down - more pronounced
+      const bobHeight = Math.sin(timeRef.current * 1.5) * 0.1
+      groupRef.current.position.y = -1.5 + bobHeight
+
+      // 3. Slight leaning/swaying
+      const leanAmount = Math.sin(timeRef.current * 0.7) * 0.1
+      groupRef.current.rotation.z = leanAmount * 0.2
+
+      // 4. Subtle scaling/breathing effect
+      const breathScale = 1 + Math.sin(timeRef.current * 2) * 0.02
+      groupRef.current.scale.set(1.2 * breathScale, 1.2 * breathScale, 1.2 * breathScale)
+    }
+  })
+
   return (
-    <mesh position={[0, 0, 0]} receiveShadow>
-      <cylinderGeometry args={[0.8, 0.8, 0.1, 32]} />
-      <meshStandardMaterial color="#a855f7" metalness={0.6} roughness={0.2} />
-    </mesh>
+    <group ref={groupRef} position={[0, -1.5, 0]} scale={1.2}>
+      <CharacterModel characterId={characterId} />
+    </group>
+  )
+}
+
+// Add a moving light to create dynamic shadows
+function MovingLight() {
+  const lightRef = useRef<THREE.SpotLight>(null)
+
+  useFrame((state) => {
+    if (lightRef.current) {
+      const angle = state.clock.getElapsedTime() * 0.5
+      const radius = 5
+      lightRef.current.position.x = Math.cos(angle) * radius
+      lightRef.current.position.z = Math.sin(angle) * radius
+      lightRef.current.position.y = 3 + Math.sin(state.clock.getElapsedTime()) * 0.5
+
+      // Make the light always look at the character
+      lightRef.current.target.position.set(0, 0, 0)
+      lightRef.current.target.updateMatrixWorld()
+    }
+  })
+
+  return (
+    <spotLight
+      ref={lightRef}
+      position={[5, 3, 0]}
+      intensity={0.6}
+      color="#ffffff"
+      angle={0.5}
+      penumbra={0.6}
+      castShadow
+      distance={10}
+    >
+      <primitive object={new THREE.Object3D()} attach="target" />
+    </spotLight>
   )
 }
 
@@ -105,13 +150,54 @@ function SceneErrorFallback() {
   )
 }
 
+// Main lobby environment
+function LobbyEnvironment() {
+  const [selectedCharacter, setSelectedCharacter] = useState("default")
+
+  // Load the selected character from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedCharacter = localStorage.getItem("selectedCharacter")
+      if (storedCharacter) {
+        console.log("Loading character from localStorage:", storedCharacter)
+        setSelectedCharacter(storedCharacter)
+      }
+    }
+  }, [])
+
+  return (
+    <>
+      {/* Camera setup */}
+      <SceneSetup />
+
+      {/* Lighting - Enhanced for better visual effect */}
+      <ambientLight intensity={0.7} />
+      <spotLight position={[0, 3, 3]} intensity={1.2} color="#ffffff" angle={0.6} penumbra={0.5} castShadow />
+      <spotLight position={[3, 3, 0]} intensity={0.8} color="#a855f7" angle={0.6} penumbra={0.5} castShadow />
+      <spotLight position={[-3, 3, 0]} intensity={0.8} color="#3b82f6" angle={0.6} penumbra={0.5} castShadow />
+
+      {/* Moving light for dynamic shadows */}
+      <MovingLight />
+
+      {/* Background */}
+      <BackgroundEnvironment />
+
+      {/* Platform */}
+      <Platform />
+
+      {/* Character - Now using the selected character from localStorage */}
+      <AnimatedCharacter characterId={selectedCharacter} />
+    </>
+  )
+}
+
 // Main exported component
 export function LobbyScene() {
   return (
     <div className="w-full h-full absolute inset-0">
       <ErrorBoundary FallbackComponent={SceneErrorFallback}>
         <Canvas shadows>
-          <SceneContent />
+          <LobbyEnvironment />
           <Environment preset="night" />
           <OrbitControls
             enableZoom={false}
@@ -122,7 +208,8 @@ export function LobbyScene() {
             maxAzimuthAngle={Math.PI / 4}
             enableDamping
             dampingFactor={0.05}
-            target={[0, 0.2, 0]} // Look at the character's center
+            target={[0, 0, 0]} // Look at the character's center
+            autoRotate={false} // Disable auto-rotation since we're rotating the character
           />
         </Canvas>
       </ErrorBoundary>
