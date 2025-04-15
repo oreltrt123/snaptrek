@@ -1,30 +1,8 @@
 import { redirect } from "next/navigation"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 import { CharacterDetailClient } from "@/components/store/character-detail-client"
 
-// Define the Character type
-interface Character {
-  id: string
-  name: string
-  description: string
-  price: number
-  rarity: string
-  imageUrl: string
-  modelPath: string
-  stats?: {
-    strength: number
-    agility: number
-    defense: number
-    magic: number
-  }
-}
-
-// Define the type for the characters object
-type CharactersRecord = Record<string, Character>
-
 // Define characters outside component to avoid dependency issues
-const characters: CharactersRecord = {
+const characters = {
   char1: {
     id: "char1",
     name: "Shadow Warrior",
@@ -139,35 +117,25 @@ const characters: CharactersRecord = {
   },
 }
 
-export default async function CharacterDetailPage({
+export default function CharacterDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }) {
-  // Await the params Promise to get the actual values
-  const { id } = await params
+  console.log("Character detail page - ID:", params.id)
 
-  // Create a Supabase client for server-side auth check
-  const cookieStore = cookies()
-  const supabase = createServerComponentClient({ cookies: () => cookieStore })
-
-  // Check if user is authenticated
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) {
-    // Redirect to login if not authenticated
-    redirect("/login")
-  }
-
-  // Get character data with type assertion
-  const character = characters[id as keyof typeof characters]
+  // Get character data
+  const character = characters[params.id as keyof typeof characters]
 
   if (!character) {
+    console.error("Character not found:", params.id)
     // Redirect to store if character not found
     redirect("/store")
   }
 
-  return <CharacterDetailClient character={character} userId={session.user.id} />
+  // For client-side rendering, we'll use a dummy userId
+  // In a real app, you'd get this from the session
+  const dummyUserId = "user-123"
+
+  return <CharacterDetailClient character={character} userId={dummyUserId} />
 }

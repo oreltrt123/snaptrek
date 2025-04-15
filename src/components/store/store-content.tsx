@@ -304,7 +304,7 @@ export default function StoreContent() {
         </div>
 
         <Tabs defaultValue="characters" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8 bg-gray-800">
+          {/* <TabsList className="grid w-full grid-cols-2 mb-8 bg-gray-800">
             <TabsTrigger value="characters" className="data-[state=active]:bg-purple-700">
               <User className="mr-2 h-5 w-5" />
               Characters
@@ -313,7 +313,7 @@ export default function StoreContent() {
               <Axe className="mr-2 h-5 w-5" />
               Gear (Coming Soon)
             </TabsTrigger>
-          </TabsList>
+          </TabsList> */}
 
           <TabsContent value="characters" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

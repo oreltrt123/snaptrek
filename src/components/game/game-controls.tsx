@@ -11,6 +11,7 @@ export function GameControls() {
   const simulateKeyPress = (key: string, pressed: boolean) => {
     const event = new KeyboardEvent(pressed ? "keydown" : "keyup", {
       key,
+      code: key,
       bubbles: true,
     })
     document.dispatchEvent(event)
@@ -28,10 +29,10 @@ export function GameControls() {
               variant="outline"
               size="icon"
               className="h-12 w-12 border-gray-500 bg-gray-800/50"
-              onMouseDown={() => simulateKeyPress("ArrowUp", true)}
-              onMouseUp={() => simulateKeyPress("ArrowUp", false)}
-              onTouchStart={() => simulateKeyPress("ArrowUp", true)}
-              onTouchEnd={() => simulateKeyPress("ArrowUp", false)}
+              onMouseDown={() => simulateKeyPress("KeyW", true)}
+              onMouseUp={() => simulateKeyPress("KeyW", false)}
+              onTouchStart={() => simulateKeyPress("KeyW", true)}
+              onTouchEnd={() => simulateKeyPress("KeyW", false)}
             >
               <ArrowUp className="h-6 w-6" />
             </Button>
@@ -40,10 +41,10 @@ export function GameControls() {
               variant="outline"
               size="icon"
               className="h-12 w-12 border-gray-500 bg-gray-800/50"
-              onMouseDown={() => simulateKeyPress("ArrowLeft", true)}
-              onMouseUp={() => simulateKeyPress("ArrowLeft", false)}
-              onTouchStart={() => simulateKeyPress("ArrowLeft", true)}
-              onTouchEnd={() => simulateKeyPress("ArrowLeft", false)}
+              onMouseDown={() => simulateKeyPress("KeyA", true)}
+              onMouseUp={() => simulateKeyPress("KeyA", false)}
+              onTouchStart={() => simulateKeyPress("KeyA", true)}
+              onTouchEnd={() => simulateKeyPress("KeyA", false)}
             >
               <ArrowLeft className="h-6 w-6" />
             </Button>
@@ -51,10 +52,10 @@ export function GameControls() {
               variant="outline"
               size="icon"
               className="h-12 w-12 border-gray-500 bg-gray-800/50"
-              onMouseDown={() => simulateKeyPress("ArrowDown", true)}
-              onMouseUp={() => simulateKeyPress("ArrowDown", false)}
-              onTouchStart={() => simulateKeyPress("ArrowDown", true)}
-              onTouchEnd={() => simulateKeyPress("ArrowDown", false)}
+              onMouseDown={() => simulateKeyPress("KeyS", true)}
+              onMouseUp={() => simulateKeyPress("KeyS", false)}
+              onTouchStart={() => simulateKeyPress("KeyS", true)}
+              onTouchEnd={() => simulateKeyPress("KeyS", false)}
             >
               <ArrowDown className="h-6 w-6" />
             </Button>
@@ -62,10 +63,10 @@ export function GameControls() {
               variant="outline"
               size="icon"
               className="h-12 w-12 border-gray-500 bg-gray-800/50"
-              onMouseDown={() => simulateKeyPress("ArrowRight", true)}
-              onMouseUp={() => simulateKeyPress("ArrowRight", false)}
-              onTouchStart={() => simulateKeyPress("ArrowRight", true)}
-              onTouchEnd={() => simulateKeyPress("ArrowRight", false)}
+              onMouseDown={() => simulateKeyPress("KeyD", true)}
+              onMouseUp={() => simulateKeyPress("KeyD", false)}
+              onTouchStart={() => simulateKeyPress("KeyD", true)}
+              onTouchEnd={() => simulateKeyPress("KeyD", false)}
             >
               <ArrowRight className="h-6 w-6" />
             </Button>
@@ -75,10 +76,10 @@ export function GameControls() {
             <Button
               variant="outline"
               className="border-purple-500 bg-purple-900/30"
-              onMouseDown={() => simulateKeyPress("Shift", true)}
-              onMouseUp={() => simulateKeyPress("Shift", false)}
-              onTouchStart={() => simulateKeyPress("Shift", true)}
-              onTouchEnd={() => simulateKeyPress("Shift", false)}
+              onMouseDown={() => simulateKeyPress("ShiftLeft", true)}
+              onMouseUp={() => simulateKeyPress("ShiftLeft", false)}
+              onTouchStart={() => simulateKeyPress("ShiftLeft", true)}
+              onTouchEnd={() => simulateKeyPress("ShiftLeft", false)}
             >
               <Zap className="mr-2 h-4 w-4" />
               Sprint (Shift)

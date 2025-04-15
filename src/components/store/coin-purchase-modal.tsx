@@ -77,18 +77,18 @@ export function CoinPurchaseModal({ onClose, onPurchaseComplete, userId }: CoinP
     {
       id: "basic",
       coins: 1000,
-      price: 3,
+      price: 10,
     },
     {
       id: "premium",
       coins: 3000,
-      price: 30,
+      price: 20,
       bestValue: true,
     },
     {
       id: "ultimate",
-      coins: 4000,
-      price: 35,
+      coins: 5000,
+      price: 30,
     },
   ]
 

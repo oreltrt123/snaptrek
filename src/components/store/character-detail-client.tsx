@@ -6,7 +6,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Coins, ArrowLeft, ShoppingCart, Check } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CharacterViewer } from "@/components/store/character-viewer"
+import dynamic from "next/dynamic"
+
+// Dynamically import the CharacterViewer component with SSR disabled
+const CharacterViewer = dynamic(
+  () => import("@/components/store/character-viewer").then((mod) => ({ default: mod.CharacterViewer })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full bg-gray-800">
+        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    ),
+  },
+)
 
 interface Character {
   id: string
@@ -41,9 +54,13 @@ export function CharacterDetailClient({
     title: string
     message: string
   } | null>(null)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
+  // Set mounted state to true when component mounts
   useEffect(() => {
+    setMounted(true)
+
     // Check if user owns this character from localStorage
     try {
       const storedOwnedCharacters = localStorage.getItem("ownedCharacters")
@@ -184,7 +201,7 @@ export function CharacterDetailClient({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Character Viewer */}
           <div className="bg-gray-800 rounded-lg overflow-hidden h-[500px]">
-            <CharacterViewer modelPath={character.modelPath} />
+            {mounted && <CharacterViewer modelPath={character.modelPath} />}
           </div>
 
           {/* Character Details */}

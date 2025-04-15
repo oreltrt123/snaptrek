@@ -1,43 +1,85 @@
-import { redirect } from "next/navigation"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { GameView } from "@/components/game/game-view"
 import { Button } from "@/components/ui/button"
+import { Home } from "lucide-react"
 
-export default async function GamePage({
+export default function GamePage({
   params,
 }: {
-  params: Promise<{ mode: string; id: string }>
+  params: { mode: string; id: string }
 }) {
-  // Await the params Promise to get the actual values
-  const { mode, id } = await params
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
-  // Create a Supabase client for server-side auth check
-  const cookieStore = cookies()
-  const supabase = createServerComponentClient({ cookies: () => cookieStore })
+  // Validate the game mode
+  const validModes = ["solo", "duo", "trio", "duel"]
 
-  // Check if user is authenticated
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  useEffect(() => {
+    console.log("Game page - Mode:", params.mode, "ID:", params.id)
 
-  if (!session) {
-    // Redirect to login if not authenticated
-    redirect("/login")
+    // Check if the mode is valid
+    if (!validModes.includes(params.mode)) {
+      console.error("Invalid game mode:", params.mode)
+      setError("Invalid game mode")
+      return
+    }
+
+    // Simulate checking if the user is authenticated
+    const isAuthenticated = true // In a real app, check localStorage or session
+
+    if (!isAuthenticated) {
+      router.push("/login")
+      return
+    }
+
+    setLoading(false)
+  }, [params.mode, params.id, router])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900">
+        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 max-w-md">
+          <h2 className="text-xl font-bold mb-4">Error</h2>
+          <p className="mb-4">{error}</p>
+          <Button onClick={() => router.push("/lobby")} className="bg-red-600 hover:bg-red-700">
+            Return to Lobby
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // For client-side rendering, we'll use a dummy userId
+  // In a real app, you'd get this from the session
+  const dummyUserId = "user-123"
 
   return (
     <div className="relative min-h-screen bg-gray-900">
       {/* Game View Component */}
-      <GameView mode={mode} gameId={id} userId={session.user.id} />
+      <GameView mode={params.mode} gameId={params.id} userId={dummyUserId} />
 
       {/* Exit Button */}
       <div className="absolute top-4 right-4 z-20">
-        <form action="/lobby">
-          <Button type="submit" variant="outline" className="border-2 border-red-500 text-white hover:bg-red-500/20">
-            Exit Game
-          </Button>
-        </form>
+        <Button
+          onClick={() => router.push("/lobby")}
+          variant="outline"
+          className="border-2 border-red-500 text-white hover:bg-red-500/20"
+        >
+          <Home className="mr-2 h-4 w-4" />
+          Exit Game
+        </Button>
       </div>
     </div>
   )
