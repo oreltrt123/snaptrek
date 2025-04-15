@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { useGLTF } from "@react-three/drei"
 import type { Group, Object3D, Mesh } from "three"
 import * as THREE from "three"
@@ -29,41 +29,64 @@ const CHARACTER_MODELS: Record<CharacterId, string> = {
 
 export function CharacterModel({ characterId, onError }: CharacterModelProps) {
   const modelRef = useRef<Group>(null)
+  const [hasError, setHasError] = useState(false)
 
   // Get the model path for this character
   const modelPath = CHARACTER_MODELS[characterId as CharacterId] || CHARACTER_MODELS.default
 
-  // Load the GLB model
+  // Load the GLB model with error handling
   const { scene } = useGLTF(modelPath, undefined, undefined, (error) => {
     console.error("Error loading GLB:", error)
+    setHasError(true)
     if (onError) onError()
   })
+
+  // If there's an error, return a simple placeholder
+  if (hasError) {
+    return (
+      <group ref={modelRef} position={[0, 0, 0]} rotation={[0, Math.PI, 0]}>
+        <mesh position={[0, 0.5, 0]}>
+          <boxGeometry args={[0.5, 1, 0.25]} />
+          <meshStandardMaterial color="#6d28d9" />
+        </mesh>
+        <mesh position={[0, 1.25, 0]}>
+          <sphereGeometry args={[0.25, 16, 16]} />
+          <meshStandardMaterial color="#8b5cf6" />
+        </mesh>
+      </group>
+    )
+  }
 
   // Clone the scene to avoid sharing issues
   const model = scene.clone()
 
   // Ensure the model is visible from all angles by setting material properties
-  model.traverse((node: Object3D) => {
-    // Check if the node is a Mesh using type assertion
-    const mesh = node as Mesh
-    if (mesh.isMesh && mesh.material) {
-      // Now TypeScript knows this is a mesh with material
-      // Make sure materials are double-sided
-      if (Array.isArray(mesh.material)) {
-        // Handle array of materials
-        mesh.material.forEach((mat) => {
-          mat.side = THREE.DoubleSide
-        })
-      } else {
-        // Handle single material
-        mesh.material.side = THREE.DoubleSide
-      }
+  try {
+    model.traverse((node: Object3D) => {
+      // Check if the node is a Mesh using type assertion
+      const mesh = node as Mesh
+      if (mesh.isMesh && mesh.material) {
+        // Now TypeScript knows this is a mesh with material
+        // Make sure materials are double-sided
+        if (Array.isArray(mesh.material)) {
+          // Handle array of materials
+          mesh.material.forEach((mat) => {
+            mat.side = THREE.DoubleSide
+          })
+        } else {
+          // Handle single material
+          mesh.material.side = THREE.DoubleSide
+        }
 
-      // Ensure materials have proper shadows
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-    }
-  })
+        // Ensure materials have proper shadows
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+      }
+    })
+  } catch (error) {
+    console.error("Error processing model materials:", error)
+    // Continue anyway - the model might still render
+  }
 
   return (
     <group ref={modelRef} position={[0, 0, 0]} rotation={[0, Math.PI, 0]}>
@@ -73,7 +96,12 @@ export function CharacterModel({ characterId, onError }: CharacterModelProps) {
 }
 
 // Preload all models to avoid loading issues
-useGLTF.preload("/assets/3d/67fceb28cde84e5e1b093c66.glb")
-useGLTF.preload("/assets/3d/67fd09ffe6ca40145d1c2b8a.glb")
-useGLTF.preload("/assets/3d/67fd09ffe6ca40145d1c2b8a2.glb")
-// Add more preloads as you add more characters
+try {
+  useGLTF.preload("/assets/3d/67fceb28cde84e5e1b093c66.glb")
+  useGLTF.preload("/assets/3d/67fd09ffe6ca40145d1c2b8a.glb")
+  useGLTF.preload("/assets/3d/67fd09ffe6ca40145d1c2b8a2.glb")
+  // Add more preloads as you add more characters
+} catch (error) {
+  console.error("Error preloading models:", error)
+  // Continue anyway - preloading is just an optimization
+}

@@ -1,12 +1,13 @@
 "use client"
 
-import React from "react"
+import React, { Suspense } from "react"
 import { useEffect, useState, useRef } from "react"
 import { Canvas, useThree, useFrame } from "@react-three/fiber"
 import { OrbitControls, Environment } from "@react-three/drei"
 import type { Group } from "three"
 import * as THREE from "three"
 import dynamic from "next/dynamic"
+import { ErrorBoundary } from "react-error-boundary"
 
 // Dynamically import the CharacterModel component with SSR disabled
 const CharacterModel = dynamic(() => import("./character-model").then((mod) => ({ default: mod.CharacterModel })), {
@@ -102,7 +103,25 @@ function AnimatedCharacter({ characterId }: { characterId: string }) {
 
   return (
     <group ref={groupRef} position={[0, -1.5, 0]} scale={1.2}>
-      <CharacterModel characterId={characterId} />
+      <Suspense fallback={<SimplePlaceholder />}>
+        <CharacterModel characterId={characterId} />
+      </Suspense>
+    </group>
+  )
+}
+
+// Simple placeholder for when the character model is loading
+function SimplePlaceholder() {
+  return (
+    <group>
+      <mesh position={[0, 0.5, 0]}>
+        <boxGeometry args={[0.5, 1, 0.25]} />
+        <meshStandardMaterial color="#6d28d9" />
+      </mesh>
+      <mesh position={[0, 1.25, 0]}>
+        <sphereGeometry args={[0.25, 16, 16]} />
+        <meshStandardMaterial color="#8b5cf6" />
+      </mesh>
     </group>
   )
 }
@@ -110,6 +129,14 @@ function AnimatedCharacter({ characterId }: { characterId: string }) {
 // Add a moving light to create dynamic shadows
 function MovingLight() {
   const lightRef = useRef<THREE.SpotLight>(null)
+  const targetRef = useRef<THREE.Object3D>(new THREE.Object3D())
+
+  useEffect(() => {
+    // Set up the target object
+    if (targetRef.current) {
+      targetRef.current.position.set(0, 0, 0)
+    }
+  }, [])
 
   useFrame((state) => {
     if (lightRef.current) {
@@ -119,27 +146,51 @@ function MovingLight() {
       lightRef.current.position.z = Math.sin(angle) * radius
       lightRef.current.position.y = 3 + Math.sin(state.clock.getElapsedTime()) * 0.5
 
-      // Make the light always look at the character
-      if (lightRef.current.target) {
-        lightRef.current.target.position.set(0, 0, 0)
-        lightRef.current.target.updateMatrixWorld()
+      // Make sure the target is updated
+      if (targetRef.current) {
+        targetRef.current.updateMatrixWorld()
       }
     }
   })
 
   return (
-    <spotLight
-      ref={lightRef}
-      position={[5, 3, 0]}
-      intensity={0.6}
-      color="#ffffff"
-      angle={0.5}
-      penumbra={0.6}
-      castShadow
-      distance={10}
-    >
-      <primitive object={new THREE.Object3D()} attach="target" />
-    </spotLight>
+    <>
+      <primitive object={targetRef.current} />
+      <spotLight
+        ref={lightRef}
+        position={[5, 3, 0]}
+        intensity={0.6}
+        color="#ffffff"
+        angle={0.5}
+        penumbra={0.6}
+        castShadow
+        distance={10}
+        target={targetRef.current}
+      />
+    </>
+  )
+}
+
+// Fallback component for when the 3D scene fails to load
+function SceneErrorFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full bg-gray-900 text-white p-8">
+      <div className="bg-purple-900/30 border border-purple-500 rounded-lg p-6 max-w-md text-center">
+        <h2 className="text-xl font-bold mb-4">3D Scene Error</h2>
+        <p className="mb-4">
+          We encountered an issue loading the 3D scene. This might be due to your browser or device not supporting
+          WebGL.
+        </p>
+        <div className="mt-6 flex justify-center">
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -149,11 +200,17 @@ function LobbyEnvironment() {
 
   // Load the selected character from localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedCharacter = localStorage.getItem("selectedCharacter")
-      if (storedCharacter) {
-        setSelectedCharacter(storedCharacter)
+    try {
+      if (typeof window !== "undefined") {
+        const storedCharacter = localStorage.getItem("selectedCharacter")
+        if (storedCharacter) {
+          setSelectedCharacter(storedCharacter)
+        }
       }
+    } catch (error) {
+      console.error("Error loading character from localStorage:", error)
+      // Fallback to default character
+      setSelectedCharacter("default")
     }
   }, [])
 
@@ -187,22 +244,26 @@ function LobbyEnvironment() {
 export const LobbySceneWithCharacter = React.memo(function LobbySceneWithCharacterInner() {
   return (
     <div className="w-full h-full absolute inset-0">
-      <Canvas shadows>
-        <LobbyEnvironment />
-        <Environment preset="night" />
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          minPolarAngle={Math.PI / 4}
-          maxPolarAngle={Math.PI / 2.2}
-          minAzimuthAngle={-Math.PI / 4}
-          maxAzimuthAngle={Math.PI / 4}
-          enableDamping
-          dampingFactor={0.05}
-          target={[0, 0, 0]} // Look at the character's center
-          autoRotate={false} // Disable auto-rotation since we're rotating the character
-        />
-      </Canvas>
+      <ErrorBoundary FallbackComponent={SceneErrorFallback}>
+        <Canvas shadows>
+          <Suspense fallback={null}>
+            <LobbyEnvironment />
+            <Environment preset="night" />
+            <OrbitControls
+              enableZoom={false}
+              enablePan={false}
+              minPolarAngle={Math.PI / 4}
+              maxPolarAngle={Math.PI / 2.2}
+              minAzimuthAngle={-Math.PI / 4}
+              maxAzimuthAngle={Math.PI / 4}
+              enableDamping
+              dampingFactor={0.05}
+              target={[0, 0, 0]} // Look at the character's center
+              autoRotate={false} // Disable auto-rotation since we're rotating the character
+            />
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
     </div>
   )
 })
