@@ -1,0 +1,96 @@
+/* Language Settings Styles */
+.twitter-language-selector {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid rgb(239, 243, 244);
+    border-radius: 16px;
+    margin: 16px 0;
+  }
+  
+  .twitter-language-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid rgb(239, 243, 244);
+  }
+  
+  .twitter-language-option:last-child {
+    border-bottom: none;
+  }
+  
+  .twitter-language-option:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+  
+  .twitter-language-option-selected {
+    background-color: rgb(29, 155, 240, 0.1);
+  }
+  
+  .twitter-language-option-name {
+    font-size: 15px;
+    color: rgb(15, 20, 25);
+  }
+  
+  .twitter-language-option-check {
+    color: rgb(29, 155, 240);
+    width: 18px;
+    height: 18px;
+  }
+  
+  .twitter-settings-description {
+    font-size: 15px;
+    color: rgb(83, 100, 113);
+    line-height: 1.4;
+    padding: 16px;
+    border-bottom: 1px solid rgb(239, 243, 244);
+  }
+  
+  .twitter-settings-section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: rgb(15, 20, 25);
+    padding: 16px 16px 4px 16px;
+  }
+  
+  .twitter-settings-section-description {
+    font-size: 14px;
+    color: rgb(83, 100, 113);
+    line-height: 1.4;
+    padding: 0 16px 16px 16px;
+  }
+  
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    .twitter-language-option {
+      border-color: rgb(47, 51, 54);
+    }
+  
+    .twitter-language-option:hover {
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+  
+    .twitter-language-option-selected {
+      background-color: rgb(29, 155, 240, 0.1);
+    }
+  
+    .twitter-language-option-name {
+      color: rgb(247, 249, 249);
+    }
+  
+    .twitter-settings-description {
+      color: rgb(139, 152, 165);
+      border-color: rgb(47, 51, 54);
+    }
+  
+    .twitter-settings-section-title {
+      color: rgb(247, 249, 249);
+    }
+  
+    .twitter-settings-section-description {
+      color: rgb(139, 152, 165);
+    }
+  }
+  

@@ -1,0 +1,406 @@
+
+  /* Header */
+  .twitter-analytics-header {
+    position: relative;
+    padding: 16px;
+    border-bottom: 1px solid rgb(239, 243, 244);
+    display: flex;
+    align-items: center;
+  }
+  
+  .twitter-analytics-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+  }
+  
+  .twitter-analytics-close:hover {
+    background-color: rgba(15, 20, 25, 0.1);
+  }
+  
+  .twitter-analytics-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: rgb(15, 20, 25);
+  }
+  
+  /* Body */
+  .twitter-analytics-body {
+    padding: 0;
+    overflow-y: auto;
+  }
+  
+  /* Post Preview */
+  .twitter-post-preview {
+    padding: 16px;
+    border-bottom: 1px solid rgb(239, 243, 244);
+  }
+  
+  .twitter-post-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .twitter-post-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+  }
+  
+  .twitter-post-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .twitter-post-user {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .twitter-post-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: rgb(15, 20, 25);
+  }
+  
+  .twitter-post-username {
+    font-size: 13px;
+    color: rgb(83, 100, 113);
+  }
+  
+  .twitter-post-content {
+    font-size: 15px;
+    line-height: 1.5;
+    color: rgb(15, 20, 25);
+    margin-bottom: 12px;
+  }
+  
+  .twitter-post-image {
+    margin-top: 12px;
+    border-radius: 16px;
+    overflow: hidden;
+    max-height: 300px;
+  }
+  
+  .twitter-post-media {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+  }
+  
+  /* Engagement Stats */
+  .twitter-engagement-stats {
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 0;
+    border-bottom: 1px solid rgb(239, 243, 244);
+  }
+  
+  .twitter-engagement-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .twitter-engagement-icon {
+    width: 18px;
+    height: 18px;
+    color: rgb(83, 100, 113);
+  }
+  
+  .twitter-engagement-value {
+    font-size: 15px;
+    font-weight: 400;
+    color: rgb(15, 20, 25);
+  }
+  
+  /* Metrics Section - Twitter/X Style */
+  .twitter-analytics-metrics {
+    padding: 16px;
+  }
+  
+  .twitter-metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid rgb(239, 243, 244);
+    position: relative;
+  }
+  
+  .twitter-metric-row:last-child {
+    border-bottom: none;
+  }
+  
+  .twitter-metric-row-group {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid rgb(239, 243, 244);
+  }
+  
+  .twitter-metric-row-group:last-child {
+    border-bottom: none;
+  }
+  
+  .twitter-metric-half {
+    width: 48%;
+    border-bottom: none;
+  }
+  
+  .twitter-metric-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    color: rgb(83, 100, 113);
+    position: relative;
+  }
+  
+  .twitter-metric-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: rgb(15, 20, 25);
+  }
+  
+  /* Info Button */
+  .twitter-info-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  
+  .twitter-info-button:hover {
+    background-color: rgba(15, 20, 25, 0.1);
+  }
+  
+  /* Loading */
+  .twitter-analytics-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    padding: 40px 0;
+  }
+  
+  .twitter-analytics-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(29, 155, 240, 0.2);
+    border-radius: 50%;
+    border-top-color: rgb(29, 155, 240);
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Positioned Tooltip */
+  .positioned-tooltip {
+    position: fixed;
+    background-color: white;
+    border-radius: 12px;
+    width: 300px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    transform: translateY(-100%);
+    margin-top: -10px;
+  }
+  
+  .positioned-tooltip::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid white;
+  }
+  
+  .positioned-tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .positioned-tooltip-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: rgb(15, 20, 25);
+    margin: 0;
+  }
+  
+  .positioned-tooltip-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  
+  .positioned-tooltip-close:hover {
+    background-color: rgba(15, 20, 25, 0.1);
+  }
+  
+  .positioned-tooltip-content {
+    margin-bottom: 16px;
+  }
+  
+  .positioned-tooltip-content p {
+    font-size: 14px;
+    line-height: 1.4;
+    color: rgb(83, 100, 113);
+    margin: 0;
+  }
+  
+  .positioned-tooltip-button {
+    width: 100%;
+    background-color: transparent;
+    border: 1px solid rgb(207, 217, 222);
+    border-radius: 9999px;
+    padding: 6px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgb(15, 20, 25);
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .positioned-tooltip-button:hover {
+    background-color: rgba(15, 20, 25, 0.1);
+  }
+  
+  /* Simple Tooltip Modal - Completely different approach */
+  .simple-tooltip-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+  
+  .simple-tooltip-modal {
+    background-color: white;
+    border-radius: 16px;
+    width: 360px;
+    max-width: 90%;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .simple-tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .simple-tooltip-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: rgb(15, 20, 25);
+    margin: 0;
+  }
+  
+  .simple-tooltip-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  
+  .simple-tooltip-close:hover {
+    background-color: rgba(15, 20, 25, 0.1);
+  }
+  
+  .simple-tooltip-content {
+    margin-bottom: 20px;
+  }
+  
+  .simple-tooltip-content p {
+    font-size: 15px;
+    line-height: 1.5;
+    color: rgb(83, 100, 113);
+    margin: 0;
+  }
+  
+  .simple-tooltip-button {
+    width: 100%;
+    background-color: transparent;
+    border: 1px solid rgb(207, 217, 222);
+    border-radius: 9999px;
+    padding: 8px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: rgb(15, 20, 25);
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .simple-tooltip-button:hover {
+    background-color: rgba(15, 20, 25, 0.1);
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 640px) {
+    .twitter-analytics-modal {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-radius: 0 !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+    }
+  
+    .twitter-metric-value {
+      font-size: 28px;
+    }
+  
+    .twitter-metric-row-group {
+      flex-direction: column;
+    }
+  
+    .twitter-metric-half {
+      width: 100%;
+      padding: 16px 0;
+    }
+  
+    .positioned-tooltip {
+      width: 250px;
+    }
+  }
+  
+  
