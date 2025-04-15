@@ -1,13 +1,17 @@
 "use client"
 
 import React from "react"
-
 import { useEffect, useState, useRef } from "react"
 import { Canvas, useThree, useFrame } from "@react-three/fiber"
 import { OrbitControls, Environment } from "@react-three/drei"
-import { CharacterModel } from "./character-model"
 import type { Group } from "three"
 import * as THREE from "three"
+import dynamic from "next/dynamic"
+
+// Dynamically import the CharacterModel component with SSR disabled
+const CharacterModel = dynamic(() => import("./character-model").then((mod) => ({ default: mod.CharacterModel })), {
+  ssr: false,
+})
 
 // Circular platform for the character to stand on
 function Platform() {
@@ -116,8 +120,10 @@ function MovingLight() {
       lightRef.current.position.y = 3 + Math.sin(state.clock.getElapsedTime()) * 0.5
 
       // Make the light always look at the character
-      lightRef.current.target.position.set(0, 0, 0)
-      lightRef.current.target.updateMatrixWorld()
+      if (lightRef.current.target) {
+        lightRef.current.target.position.set(0, 0, 0)
+        lightRef.current.target.updateMatrixWorld()
+      }
     }
   })
 

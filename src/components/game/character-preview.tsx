@@ -3,7 +3,12 @@
 import { Canvas, useThree } from "@react-three/fiber"
 import { OrbitControls, Environment, PerspectiveCamera } from "@react-three/drei"
 import { useState, Suspense, useEffect } from "react"
-import { CharacterModel } from "@/components/game/character-model"
+import dynamic from "next/dynamic"
+
+// Dynamically import the CharacterModel component with SSR disabled
+const CharacterModel = dynamic(() => import("./character-model").then((mod) => ({ default: mod.CharacterModel })), {
+  ssr: false,
+})
 
 interface CharacterPreviewProps {
   characterId: string
