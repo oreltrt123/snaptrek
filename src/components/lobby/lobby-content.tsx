@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Settings, ShoppingBag } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import dynamic from "next/dynamic"
 import "@/style/lobby.css"
+import { useAuth } from "@/lib/auth-provider"
 
 // Import the GameModeSelector component normally since it doesn't use Three.js
 import { GameModeSelector } from "@/components/game/game-mode-selector"
@@ -30,8 +29,7 @@ interface GameMode {
 }
 
 export default function LobbyContent() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, isLoading } = useAuth()
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [selectedMode, setSelectedMode] = useState<GameMode | null>(null)
   const router = useRouter()
@@ -43,35 +41,6 @@ export default function LobbyContent() {
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession()
-
-        if (error) {
-          console.log("Session check error:", error.message)
-          setError("Authentication error: " + error.message)
-          router.push("/login")
-          return
-        }
-
-        if (!data.session) {
-          router.push("/login")
-          return
-        }
-
-        setUser(data.session.user)
-        setLoading(false)
-      } catch (err) {
-        console.log("Error checking session:", err)
-        setError("Session error: " + (err instanceof Error ? err.message : String(err)))
-        router.push("/login")
-      }
-    }
-
-    checkSession()
-  }, [router])
 
   useEffect(() => {
     // Check if we're returning from the locker page
@@ -134,7 +103,16 @@ export default function LobbyContent() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    router.push("/login")
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
         <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>

@@ -2,8 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-// import { NavBar } from "@/components/nav-bar"
-// import { Footer } from "@/components/footer"
+import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/lib/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,9 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-          {/* <NavBar /> */}
-          {children}
-          {/* <Footer /> */}
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="realm-rivals-theme">
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

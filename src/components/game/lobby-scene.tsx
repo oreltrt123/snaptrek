@@ -1,9 +1,34 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
 import { OrbitControls, Environment, Box, Sphere } from "@react-three/drei"
 import { ErrorBoundary } from "react-error-boundary"
+
+// Scene components that must be used inside Canvas
+function SceneContent() {
+  return (
+    <>
+      {/* Camera setup */}
+      <SceneSetup />
+
+      {/* Lighting */}
+      <ambientLight intensity={0.7} />
+      <spotLight position={[0, 3, 3]} intensity={1} color="#ffffff" angle={0.6} penumbra={0.5} castShadow />
+      <spotLight position={[3, 3, 0]} intensity={0.8} color="#a855f7" angle={0.6} penumbra={0.5} castShadow />
+      <spotLight position={[-3, 3, 0]} intensity={0.8} color="#3b82f6" angle={0.6} penumbra={0.5} castShadow />
+
+      {/* Background */}
+      <BackgroundEnvironment />
+
+      {/* Platform */}
+      <Platform />
+
+      {/* Character */}
+      <PlaceholderCharacter />
+    </>
+  )
+}
 
 // Simple placeholder character
 function PlaceholderCharacter() {
@@ -12,7 +37,7 @@ function PlaceholderCharacter() {
       <Box args={[0.5, 1, 0.25]} position={[0, 0.5, 0]}>
         <meshStandardMaterial color="#6d28d9" />
       </Box>
-      <Sphere args={[0.25, 16, 16]} position={[0, 1, 0]}>
+      <Sphere args={[0.25, 16, 16]} position={[0, 1.25, 0]}>
         <meshStandardMaterial color="#8b5cf6" />
       </Sphere>
     </group>
@@ -80,43 +105,13 @@ function SceneErrorFallback() {
   )
 }
 
-// Main lobby environment
-function LobbyEnvironment() {
-  return (
-    <>
-      {/* Camera setup */}
-      <SceneSetup />
-
-      {/* Lighting */}
-      <ambientLight intensity={0.7} />
-      <spotLight position={[0, 3, 3]} intensity={1} color="#ffffff" angle={0.6} penumbra={0.5} castShadow />
-      <spotLight position={[3, 3, 0]} intensity={0.8} color="#a855f7" angle={0.6} penumbra={0.5} castShadow />
-      <spotLight position={[-3, 3, 0]} intensity={0.8} color="#3b82f6" angle={0.6} penumbra={0.5} castShadow />
-
-      {/* Background */}
-      <BackgroundEnvironment />
-
-      {/* Platform */}
-      <Platform />
-
-      {/* Character */}
-      <PlaceholderCharacter />
-    </>
-  )
-}
-
+// Main exported component
 export function LobbyScene() {
-  const [hasError, setHasError] = useState(false)
-
-  if (hasError) {
-    return <SceneErrorFallback />
-  }
-
   return (
     <div className="w-full h-full absolute inset-0">
-      <ErrorBoundary FallbackComponent={SceneErrorFallback} onError={() => setHasError(true)}>
+      <ErrorBoundary FallbackComponent={SceneErrorFallback}>
         <Canvas shadows>
-          <LobbyEnvironment />
+          <SceneContent />
           <Environment preset="night" />
           <OrbitControls
             enableZoom={false}
