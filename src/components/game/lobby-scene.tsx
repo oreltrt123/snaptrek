@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useEffect, useState, useRef } from "react"
 import { Canvas, useThree, useFrame } from "@react-three/fiber"
 import { OrbitControls, Environment } from "@react-three/drei"
@@ -8,24 +10,90 @@ import type { Group } from "three"
 import * as THREE from "three"
 import { ErrorBoundary } from "react-error-boundary"
 
-// Circular platform for the character to stand on
-function Platform() {
+// Platform for a character
+function CharacterPlatform({
+  position = [0, 0, 0],
+  scale = 1,
+  isActive = true,
+  children,
+}: {
+  position?: [number, number, number]
+  scale?: number
+  isActive?: boolean
+  children?: React.ReactNode
+}) {
   const platformRef = useRef<THREE.Mesh>(null)
 
   // Add subtle animation to the platform
   useFrame((state) => {
-    if (platformRef.current) {
+    if (platformRef.current && isActive) {
       // Gentle pulsing effect
-      const scale = 1 + Math.sin(state.clock.getElapsedTime() * 0.5) * 0.02
-      platformRef.current.scale.set(scale, 1, scale)
+      const pulseScale = 1 + Math.sin(state.clock.getElapsedTime() * 0.5) * 0.02
+      platformRef.current.scale.set(scale * pulseScale, 1, scale * pulseScale)
     }
   })
 
   return (
-    <mesh ref={platformRef} position={[0, 0, 0]} receiveShadow>
-      <cylinderGeometry args={[0.8, 0.8, 0.1, 32]} />
-      <meshStandardMaterial color="#a855f7" metalness={0.6} roughness={0.2} />
-    </mesh>
+    <group position={new THREE.Vector3(...position)}>
+      <mesh ref={platformRef} position={[0, 0, 0]} receiveShadow>
+        <cylinderGeometry args={[0.8 * scale, 0.8 * scale, 0.1, 32]} />
+        <meshStandardMaterial
+          color={isActive ? "#a855f7" : "#6b21a8"}
+          metalness={0.6}
+          roughness={0.2}
+          opacity={isActive ? 1 : 0.7}
+          transparent={!isActive}
+        />
+      </mesh>
+      {children}
+    </group>
+  )
+}
+
+// Add a plus button above a platform
+function PlusButton({ position, onClick }: { position: [number, number, number]; onClick: () => void }) {
+  const groupRef = useRef<Group>(null)
+  const [hovered, setHovered] = useState(false)
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      // Hover animation
+      groupRef.current.position.y = position[1] + Math.sin(state.clock.getElapsedTime() * 2) * 0.05
+      groupRef.current.rotation.y += 0.01
+
+      // Scale effect on hover
+      const targetScale = hovered ? 1.2 : 1
+      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1)
+    }
+  })
+
+  return (
+    <group
+      ref={groupRef}
+      position={position}
+      onClick={onClick}
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+      // Make the hitbox larger for easier clicking
+      scale={1}
+    >
+      <mesh>
+        <boxGeometry args={[0.3, 0.08, 0.08]} />
+        <meshStandardMaterial
+          color={hovered ? "#34d399" : "#10b981"}
+          emissive={hovered ? "#34d399" : "#10b981"}
+          emissiveIntensity={hovered ? 0.8 : 0.5}
+        />
+      </mesh>
+      <mesh rotation={[0, 0, Math.PI / 2]}>
+        <boxGeometry args={[0.3, 0.08, 0.08]} />
+        <meshStandardMaterial
+          color={hovered ? "#34d399" : "#10b981"}
+          emissive={hovered ? "#34d399" : "#10b981"}
+          emissiveIntensity={hovered ? 0.8 : 0.5}
+        />
+      </mesh>
+    </group>
   )
 }
 
@@ -58,8 +126,8 @@ function SceneSetup() {
   const { camera } = useThree()
 
   useEffect(() => {
-    // Adjust camera position to see the character better - focus more on upper body
-    camera.position.set(0, 0.5, 3.5)
+    // Adjust camera position to see all platforms
+    camera.position.set(0, 1.5, 5)
     camera.lookAt(0, 0, 0)
   }, [camera])
 
@@ -67,9 +135,11 @@ function SceneSetup() {
 }
 
 // Character with animation
-function AnimatedCharacter({ characterId }: { characterId: string }) {
+function AnimatedCharacter({
+  characterId,
+  position = [0, 0, 0],
+}: { characterId: string; position?: [number, number, number] }) {
   const groupRef = useRef<Group>(null)
-  const rotationRef = useRef(0)
   const timeRef = useRef(0)
 
   // Enhanced idle animation with more noticeable movements
@@ -77,26 +147,22 @@ function AnimatedCharacter({ characterId }: { characterId: string }) {
     if (groupRef.current) {
       timeRef.current += delta
 
-      // 1. Continuous rotation - make the character slowly turn around
-      rotationRef.current += delta * 0.2 // Slow rotation
-      groupRef.current.rotation.y = rotationRef.current
-
-      // 2. Bobbing up and down - more pronounced
+      // Bobbing up and down - more pronounced
       const bobHeight = Math.sin(timeRef.current * 1.5) * 0.1
-      groupRef.current.position.y = -1.5 + bobHeight
+      groupRef.current.position.y = position[1] + bobHeight
 
-      // 3. Slight leaning/swaying
+      // Slight leaning/swaying
       const leanAmount = Math.sin(timeRef.current * 0.7) * 0.1
       groupRef.current.rotation.z = leanAmount * 0.2
 
-      // 4. Subtle scaling/breathing effect
+      // Subtle scaling/breathing effect
       const breathScale = 1 + Math.sin(timeRef.current * 2) * 0.02
       groupRef.current.scale.set(1.2 * breathScale, 1.2 * breathScale, 1.2 * breathScale)
     }
   })
 
   return (
-    <group ref={groupRef} position={[0, -1.5, 0]} scale={1.2}>
+    <group ref={groupRef} position={[position[0], position[1], position[2]]} scale={1.2}>
       <CharacterModel characterId={characterId} />
     </group>
   )
@@ -114,7 +180,7 @@ function MovingLight() {
       lightRef.current.position.z = Math.sin(angle) * radius
       lightRef.current.position.y = 3 + Math.sin(state.clock.getElapsedTime()) * 0.5
 
-      // Make the light always look at the character
+      // Make the light always look at the center
       lightRef.current.target.position.set(0, 0, 0)
       lightRef.current.target.updateMatrixWorld()
     }
@@ -150,9 +216,88 @@ function SceneErrorFallback() {
   )
 }
 
+// Raycaster for handling 3D object interactions
+function InteractionHandler({
+  onClickLeftPlatform,
+  onClickRightPlatform,
+  children,
+}: {
+  onClickLeftPlatform: () => void
+  onClickRightPlatform: () => void
+  children: React.ReactNode
+}) {
+  const { camera, raycaster, mouse, scene } = useThree()
+  const leftPlusRef = useRef<Group>(null)
+  const rightPlusRef = useRef<Group>(null)
+
+  // Set up click handler
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      // Update the mouse position
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+
+      // Update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, camera)
+
+      // Calculate objects intersecting the picking ray
+      const intersects = raycaster.intersectObjects(scene.children, true)
+
+      // Check if we clicked on a plus button
+      for (let i = 0; i < intersects.length; i++) {
+        let obj = intersects[i].object
+
+        // Traverse up to find the group
+        while (obj && obj.parent && obj.parent !== scene) {
+          obj = obj.parent
+
+          // Check if this is the left plus button
+          if (obj.position.x < -1) {
+            onClickLeftPlatform()
+            return
+          }
+
+          // Check if this is the right plus button
+          if (obj.position.x > 1) {
+            onClickRightPlatform()
+            return
+          }
+        }
+      }
+    }
+
+    window.addEventListener("click", handleClick)
+    return () => {
+      window.removeEventListener("click", handleClick)
+    }
+  }, [camera, mouse, raycaster, scene, onClickLeftPlatform, onClickRightPlatform])
+
+  return <>{children}</>
+}
+
 // Main lobby environment
-function LobbyEnvironment() {
+function LobbyEnvironment({
+  onClickLeftPlatform,
+  onClickRightPlatform,
+  members,
+}: {
+  onClickLeftPlatform: () => void
+  onClickRightPlatform: () => void
+  members: {
+    position: number
+    profiles: {
+      id: string
+      username: string
+      avatar_url?: string
+    }
+  }[]
+}) {
   const [selectedCharacter, setSelectedCharacter] = useState("default")
+
+  // Find members by position
+  const owner = members.find((m) => m.position === 0)?.profiles
+  const leftMember = members.find((m) => m.position === 1)?.profiles
+  const rightMember = members.find((m) => m.position === 2)?.profiles
 
   // Load the selected character from localStorage
   useEffect(() => {
@@ -166,7 +311,7 @@ function LobbyEnvironment() {
   }, [])
 
   return (
-    <>
+    <InteractionHandler onClickLeftPlatform={onClickLeftPlatform} onClickRightPlatform={onClickRightPlatform}>
       {/* Camera setup */}
       <SceneSetup />
 
@@ -182,22 +327,51 @@ function LobbyEnvironment() {
       {/* Background */}
       <BackgroundEnvironment />
 
-      {/* Platform */}
-      <Platform />
+      {/* Main character platform (center) */}
+      <CharacterPlatform position={[0, 0, 0]} scale={1} isActive={true}>
+        <AnimatedCharacter characterId={selectedCharacter} position={[0, 0, 0]} />
+      </CharacterPlatform>
 
-      {/* Character - Now using the selected character from localStorage */}
-      <AnimatedCharacter characterId={selectedCharacter} />
-    </>
+      {/* Left character platform */}
+      <CharacterPlatform position={[-2.5, 0, 0]} scale={0.9} isActive={!!leftMember}>
+        {leftMember ? (
+          <AnimatedCharacter characterId={leftMember.id} position={[-2.5, 0, 0]} />
+        ) : (
+          <PlusButton position={[-2.5, 1.5, 0]} onClick={onClickLeftPlatform} />
+        )}
+      </CharacterPlatform>
+
+      {/* Right character platform */}
+      <CharacterPlatform position={[2.5, 0, 0]} scale={0.9} isActive={!!rightMember}>
+        {rightMember ? (
+          <AnimatedCharacter characterId={rightMember.id} position={[2.5, 0, 0]} />
+        ) : (
+          <PlusButton position={[2.5, 1.5, 0]} onClick={onClickRightPlatform} />
+        )}
+      </CharacterPlatform>
+    </InteractionHandler>
   )
 }
 
 // Main exported component
-export function LobbyScene() {
+export function LobbyScene({
+  onClickLeftPlatform,
+  onClickRightPlatform,
+  members = [],
+}: {
+  onClickLeftPlatform?: () => void
+  onClickRightPlatform?: () => void
+  members?: any[]
+}) {
   return (
     <div className="w-full h-full absolute inset-0">
       <ErrorBoundary FallbackComponent={SceneErrorFallback}>
         <Canvas shadows>
-          <LobbyEnvironment />
+          <LobbyEnvironment
+            onClickLeftPlatform={onClickLeftPlatform || (() => {})}
+            onClickRightPlatform={onClickRightPlatform || (() => {})}
+            members={members}
+          />
           <Environment preset="night" />
           <OrbitControls
             enableZoom={false}
@@ -208,8 +382,8 @@ export function LobbyScene() {
             maxAzimuthAngle={Math.PI / 4}
             enableDamping
             dampingFactor={0.05}
-            target={[0, 0, 0]} // Look at the character's center
-            autoRotate={false} // Disable auto-rotation since we're rotating the character
+            target={[0, 0, 0]} // Look at the center
+            autoRotate={false}
           />
         </Canvas>
       </ErrorBoundary>
