@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Search, UserPlus, Users, Mail, RefreshCw, AlertTriangle } from 'lucide-react'
+import { X, Search, UserPlus, Users, Mail, RefreshCw, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -51,8 +51,22 @@ export function UserSearchSidebar({ isOpen, onClose, lobbyId, availablePosition 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [activeTab, setActiveTab] = useState("all")
   const [retryCount, setRetryCount] = useState(0)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const supabase = createClientComponentClient()
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  // Get current user on mount
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data, error } = await supabase.auth.getUser()
+      if (data?.user) {
+        setCurrentUser(data.user)
+      } else if (error) {
+        console.error("Error fetching current user:", error)
+      }
+    }
+
+    fetchCurrentUser()
+  }, [supabase.auth])
 
   // Simple notification system
   const showNotification = (message: string, type: "success" | "error" | "info" | "warning" = "info") => {
@@ -68,73 +82,14 @@ export function UserSearchSidebar({ isOpen, onClose, lobbyId, availablePosition 
   const removeNotification = (id: string) => {
     setNotifications((prev) => prev.filter((notification) => notification.id !== id))
   }
-// Add this function at the top of your component, right after the useState declarations
-const getUserIdFromLocalStorage = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('userId')
-  }
-  return null
-}
-// Replace the useEffect for getting current user with this:
-useEffect(() => {
-  const getCurrentUser = async () => {
-    try {
-      // First try to get from Supabase auth
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setCurrentUserId(user.id)
-        return
-      }
-      
-      // If not found in auth, try localStorage
-      const storedUserId = getUserIdFromLocalStorage()
-      if (storedUserId) {
-        console.log("Using user ID from localStorage:", storedUserId)
-        setCurrentUserId(storedUserId)
-        return
-      }
-      
-      // If still not found, show error
-      console.warn("No user ID found in auth or localStorage")
-      setError("User ID not found. Please try logging in again.")
-    } catch (error) {
-      console.error("Error getting current user:", error)
-    }
-  }
-
-  getCurrentUser()
-}, [supabase])
-  // Get current user on mount
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          setCurrentUserId(user.id)
-        } else {
-          // If not logged in, try to get user ID from localStorage
-          const storedUserId = localStorage.getItem('userId')
-          if (storedUserId) {
-            setCurrentUserId(storedUserId)
-          }
-        }
-      } catch (error) {
-        console.error("Error getting current user:", error)
-      }
-    }
-
-    getCurrentUser()
-  }, [supabase])
 
   // Fetch all users and invitations on mount
   useEffect(() => {
     if (isOpen) {
       fetchAllUsers()
-      if (currentUserId) {
-        fetchInvitations()
-      }
+      fetchInvitations()
     }
-  }, [isOpen, lobbyId, retryCount, currentUserId])
+  }, [isOpen, lobbyId, retryCount])
 
   // Fetch all users
   const fetchAllUsers = async () => {
@@ -167,15 +122,20 @@ useEffect(() => {
     }
   }
 
-  // Fetch invitations - MODIFIED TO NOT REQUIRE AUTHENTICATION
+  // Fetch invitations
   const fetchInvitations = async () => {
-    if (!currentUserId) {
-      console.log("No user ID available for fetching invitations")
-      return
-    }
-
     try {
-      const response = await fetch(`/api/lobby/invitations?userId=${currentUserId}`)
+      // Get current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        showNotification("You must be logged in to view invitations", "error")
+        return
+      }
+
+      const response = await fetch(`/api/lobby/invitations?userId=${user.id}`)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -191,7 +151,7 @@ useEffect(() => {
       }
     } catch (error) {
       console.error("Error fetching invitations:", error)
-      // Don't show error notification for invitations to avoid confusion
+      showNotification("Failed to load invitations. Please try again.", "error")
     }
   }
 
@@ -229,11 +189,44 @@ useEffect(() => {
     }
   }
 
-  // Send invitation - SIMPLIFIED VERSION THAT BYPASSES AUTHENTICATION
+  // Send invitation
   const sendInvitation = async (userId: string) => {
     setIsLoading(true)
     try {
-      // Direct API call without authentication checks
+      // Make sure we have the current user
+      if (!currentUser) {
+        const { data } = await supabase.auth.getUser()
+        if (!data?.user) {
+          showNotification("You must be logged in to send invitations", "error")
+          setIsLoading(false)
+          return
+        }
+        setCurrentUser(data.user)
+      }
+
+      // Try direct database insertion first
+      try {
+        const { error } = await supabase.from("lobby_invitations").insert({
+          sender_id: currentUser.id,
+          recipient_id: userId,
+          lobby_id: lobbyId,
+          status: "pending",
+          position: availablePosition,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+
+        if (!error) {
+          showNotification("Your invitation has been sent successfully.", "success")
+          fetchInvitations()
+          setIsLoading(false)
+          return
+        }
+      } catch (directError) {
+        console.error("Direct invitation error:", directError)
+      }
+
+      // If direct insertion fails, try the API
       const response = await fetch("/api/lobby/invite", {
         method: "POST",
         headers: {
@@ -242,6 +235,8 @@ useEffect(() => {
         body: JSON.stringify({
           recipientId: userId,
           lobbyId,
+          senderId: currentUser.id,
+          position: availablePosition,
         }),
       })
 
@@ -267,6 +262,33 @@ useEffect(() => {
   const respondToInvitation = async (invitationId: string, accept: boolean) => {
     setIsLoading(true)
     try {
+      // Try direct database update first
+      try {
+        const { error } = await supabase
+          .from("lobby_invitations")
+          .update({
+            status: accept ? "accepted" : "declined",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", invitationId)
+
+        if (!error) {
+          showNotification(accept ? "You have joined the lobby." : "You have declined the invitation.", "success")
+          fetchInvitations()
+
+          // Close sidebar if accepted
+          if (accept) {
+            onClose()
+          }
+
+          setIsLoading(false)
+          return
+        }
+      } catch (directError) {
+        console.error("Direct response error:", directError)
+      }
+
+      // If direct update fails, try the API
       const response = await fetch("/api/lobby/respond-invite", {
         method: "POST",
         headers: {
@@ -516,67 +538,52 @@ useEffect(() => {
             </Button>
           </div>
 
-          {!currentUserId ? (
-            <div className="bg-yellow-900/30 border border-yellow-500 rounded-lg p-4 mb-4">
-              <h4 className="text-yellow-400 font-medium mb-2">User ID Not Found</h4>
-              <p className="text-yellow-300 text-sm">
-                We couldn't determine your user ID. Please try logging in again.
-              </p>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto">
-              {invitations.length > 0 ? (
-                <ul className="space-y-2">
-                  {invitations.map((invitation) => (
-                    <li key={invitation.id} className="flex items-center justify-between p-2 rounded-md bg-gray-800/50">
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={invitation.sender_avatar || ""} />
-                          <AvatarFallback className="bg-purple-700">
-                            {invitation.sender_username?.charAt(0).toUpperCase() || "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-white">{invitation.sender_username || "Unknown"}</span>
-                          <span className="text-xs text-gray-400">wants to play with you</span>
-                        </div>
+          <div className="flex-1 overflow-y-auto">
+            {invitations.length > 0 ? (
+              <ul className="space-y-2">
+                {invitations.map((invitation) => (
+                  <li key={invitation.id} className="flex items-center justify-between p-2 rounded-md bg-gray-800/50">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage src={invitation.sender_avatar || ""} />
+                        <AvatarFallback className="bg-purple-700">
+                          {invitation.sender_username?.charAt(0).toUpperCase() || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-white">{invitation.sender_username || "Unknown"}</span>
+                        <span className="text-xs text-gray-400">wants to play with you</span>
                       </div>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => respondToInvitation(invitation.id, true)}
-                          disabled={isLoading}
-                          className="bg-green-700 hover:bg-green-600"
-                        >
-                          Accept
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => respondToInvitation(invitation.id, false)}
-                          disabled={isLoading}
-                          className="border-red-500 text-red-400 hover:bg-red-900/20"
-                        >
-                          Decline
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-center text-gray-400 py-8">No pending invitations.</p>
-              )}
-            </div>
-          )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => respondToInvitation(invitation.id, true)}
+                        disabled={isLoading}
+                        className="bg-green-700 hover:bg-green-600"
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => respondToInvitation(invitation.id, false)}
+                        disabled={isLoading}
+                        className="border-red-500 text-red-400 hover:bg-red-900/20"
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-center text-gray-400 py-8">No pending invitations.</p>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
-
-      {/* Debug info */}
-      <div className="p-2 border-t border-purple-800/50 text-xs text-gray-500">
-        <p>User ID: {currentUserId || "Not found"}</p>
-        <p>Lobby ID: {lobbyId}</p>
-      </div>
     </div>
   )
 }

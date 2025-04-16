@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Settings, ShoppingBag } from "lucide-react"
+import { Settings, ShoppingBag } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import dynamic from "next/dynamic"
 import "@/style/lobby.css"
+import "@/styles/play-button.css" // Import the CSS file for the Play button
 import { useAuth } from "@/lib/auth-provider"
 import { UserSearchSidebar } from "@/components/lobby/user-search-sidebar"
 
@@ -242,24 +243,29 @@ export default function LobbyContent() {
         {/* Game Mode and Play Buttons */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
           {/* Mode Button */}
-          <div className="flex items-center gap-3">
-            <button onClick={handleOpenModeSelector} className="tab bg-cyan-600 hover:bg-cyan-700">
-              <Settings className="mr-2 h-5 w-5" />
-              MODE
-            </button>
+          <div className="relative">
+            <h1 className="text-3xl font-bold text-white mb-2 text-center"></h1>
 
-            {/* Selected Mode Display */}
+            {/* SELECT WORLD Button - positioned relative to the container */}
+            <div className="pwrwcsfw">
+            <button onClick={handleOpenModeSelector} className="mode play" style={{ position: 'absolute', right: '190%', top: '-50px' }}>
+              SELECT WORLD
+              <span></span>
+                          {/* Selected Mode Display */}
             {selectedMode && (
-              <div className="px-4 py-2 bg-purple-900/70 rounded-lg border border-purple-500 text-white font-semibold">
+              <div className="px-4 py-2 bg-none rounded-lg text-white font-semibold">
                 {selectedMode.name}
               </div>
             )}
-          </div>
+            </button>
+            </div>
 
-          {/* Play Button */}
-          <button onClick={handlePlay} className="tab">
-            PLAY!
-          </button>
+            {/* Play Button - using the absolute positioning from the CSS */}
+            <button onClick={handlePlay} className="play">
+              PLAY
+              <span></span>
+            </button>
+          </div>
         </div>
       </div>
 

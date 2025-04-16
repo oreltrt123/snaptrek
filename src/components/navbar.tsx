@@ -7,7 +7,7 @@ import UserProfile from "./user-profile"
 import { useEffect, useState } from "react"
 import "../styles/navbar.css"
 import { usePathname } from "next/navigation"
-
+import "../styles/logo.css"
 export default function Navbar() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -82,8 +82,11 @@ export default function Navbar() {
   return (
     <nav className="w-full border-gray-900 py-2">
       <div className="container mx-auto px-4 flex justify-between items-center">
-        <Link href="/" prefetch className="text-xl font-bold text-white">
-          SnapTrek
+        <Link href="/" prefetch>
+        <button className="button" data-text="Awesome">
+    <span className="actual-text">&nbsp;SnapTrek&nbsp;</span>
+    <span aria-hidden="true" className="hover-text">&nbsp;SnapTrek&nbsp;</span>
+</button>
         </Link>
         <div className="hidden md:flex gap-8 items-center">
           {/* <Link href="/docs" className="text-gray-300 hover:text-white group relative inline-block">
