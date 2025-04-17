@@ -115,6 +115,22 @@ const characters = {
       magic: 95,
     },
   },
+  char8: {
+    id: "char8",
+    name: "Body Blocker",
+    description:
+      "A tactical defensive specialist with unmatched blocking abilities. The Body Blocker can create impenetrable barriers that protect allies from incoming attacks. Their unique physiology allows them to absorb and redirect kinetic energy, making them the ultimate team protector in any combat situation.",
+    price: 0, // Free character
+    rarity: "uncommon",
+    imageUrl: "/body-blocker.png",
+    modelPath: "/assets/3d/BodyBlock.fbx",
+    stats: {
+      strength: 65,
+      agility: 50,
+      defense: 100,
+      magic: 30,
+    },
+  },
 }
 
 export default function CharacterDetailPage({

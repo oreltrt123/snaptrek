@@ -10,10 +10,14 @@ import Image from "next/image"
 import dynamic from "next/dynamic"
 
 // Dynamically import the CharacterPreview component with SSR disabled
-const CharacterPreview = dynamic(
-  () => import("@/components/game/character-preview").then((mod) => ({ default: mod.CharacterPreview })),
-  { ssr: false, loading: () => null },
-)
+const CharacterPreview = dynamic(() => import("@/components/game/character-preview"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full">
+      <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  ),
+})
 
 // Character data structure
 interface Character {
@@ -83,6 +87,22 @@ const storeCharacters: Record<string, Character> = {
     modelPath: "/assets/3d/67fd09ffe6ca40145d1c2b8a2.glb",
     thumbnailUrl: "/astral-nomad.png",
   },
+  char8: {
+    id: "char8",
+    name: "Aerial Guardian",
+    description: "A masterful defender who can fly above the battlefield, raining down protective energy on allies.",
+    rarity: "legendary",
+    modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+    thumbnailUrl: "/aerial-guardian.png",
+  },
+  bodyblock: {
+    id: "bodyblock",
+    name: "Body Blocker",
+    description: "A special character with unique blocking abilities and movements.",
+    rarity: "mythic",
+    modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+    thumbnailUrl: "/body-blocker.png",
+  },
 }
 
 // Default character defined outside component
@@ -113,8 +133,11 @@ export default function LockerContent() {
 
   // Load owned characters function
   const loadOwnedCharacters = useCallback(() => {
-    // Start with the default character
-    const ownedCharacters: Character[] = [defaultCharacter]
+    // Start with the default character and BodyBlock character (always available)
+    const ownedCharacters: Character[] = [
+      defaultCharacter,
+      storeCharacters.bodyblock, // Always include the BodyBlock character
+    ]
 
     if (typeof window === "undefined") {
       return ownedCharacters
@@ -137,7 +160,7 @@ export default function LockerContent() {
     // Add owned characters from the store - ensuring no duplicates
     if (ownedCharacterIds.length > 0) {
       // Create a Set to track which character IDs we've already added
-      const addedCharacterIds = new Set<string>(["default"])
+      const addedCharacterIds = new Set<string>(["default", "bodyblock"])
 
       ownedCharacterIds.forEach((charId) => {
         // Only add if we haven't already added this character
@@ -234,6 +257,8 @@ export default function LockerContent() {
         return "bg-purple-500"
       case "legendary":
         return "bg-yellow-500"
+      case "mythic":
+        return "bg-red-500"
       default:
         return "bg-gray-500"
     }
@@ -282,7 +307,11 @@ export default function LockerContent() {
           {/* Character Preview */}
           <div className="col-span-1 md:col-span-2">
             <div className="bg-gray-800 rounded-lg overflow-hidden h-[500px]">
-              {mounted && <CharacterPreview characterId={selectedCharacter} />}
+              {mounted && (
+                <div className="w-full h-full">
+                  <CharacterPreview characterId={selectedCharacter} />
+                </div>
+              )}
             </div>
           </div>
 

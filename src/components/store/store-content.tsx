@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Coins, ShoppingBag, User, Axe } from "lucide-react"
+import { Coins, ShoppingBag, User, Axe, Lock } from "lucide-react"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import dynamic from "next/dynamic"
@@ -13,7 +13,14 @@ import dynamic from "next/dynamic"
 // Dynamically import the CharacterCard component with SSR disabled
 const CharacterCard = dynamic(
   () => import("@/components/store/character-card").then((mod) => ({ default: mod.CharacterCard })),
-  { ssr: false, loading: () => null },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-48">
+        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    ),
+  },
 )
 
 // Dynamically import the CoinPurchaseModal component with SSR disabled
@@ -30,6 +37,7 @@ interface Character {
   rarity: string
   imageUrl: string
   modelPath: string
+  purchasable?: boolean
 }
 
 export default function StoreContent() {
@@ -62,43 +70,48 @@ export default function StoreContent() {
       rarity: "rare",
       imageUrl: "/cybernetic-guardian.png",
       modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+      purchasable: true,
     },
-    {
-      id: "char2",
-      name: "Cyber Knight",
-      description: "Armored protector with advanced tech and powerful shields.",
-      price: 1500,
-      rarity: "epic",
-      imageUrl: "/armored-enforcer.png",
-      modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-    },
-    {
-      id: "char3",
-      name: "Mystic Mage",
-      description: "Wields ancient magic with devastating elemental attacks.",
-      price: 1000,
-      rarity: "rare",
-      imageUrl: "/arcane-scholar.png",
-      modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-    },
-    {
-      id: "char4",
-      name: "Neon Assassin",
-      description: "Lightning-fast striker that leaves a trail of neon light.",
-      price: 2000,
-      rarity: "legendary",
-      imageUrl: "/cyber-shadow.png",
-      modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-    },
-    {
-      id: "char5",
-      name: "Void Walker",
-      description: "A mysterious entity that can phase through dimensions and manipulate dark energy.",
-      price: 2500,
-      rarity: "legendary",
-      imageUrl: "/void-walker.png",
-      modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-    },
+    // {
+    //   id: "char2",
+    //   name: "Cyber Knight",
+    //   description: "Armored protector with advanced tech and powerful shields.",
+    //   price: 1500,
+    //   rarity: "epic",
+    //   imageUrl: "/armored-enforcer.png",
+    //   modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+    //   purchasable: true,
+    // },
+    // {
+    //   id: "char3",
+    //   name: "Mystic Mage",
+    //   description: "Wields ancient magic with devastating elemental attacks.",
+    //   price: 1000,
+    //   rarity: "rare",
+    //   imageUrl: "/arcane-scholar.png",
+    //   modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+    //   purchasable: true,
+    // },
+    // {
+    //   id: "char4",
+    //   name: "Neon Assassin",
+    //   description: "Lightning-fast striker that leaves a trail of neon light.",
+    //   price: 2000,
+    //   rarity: "legendary",
+    //   imageUrl: "/cyber-shadow.png",
+    //   modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+    //   purchasable: true,
+    // },
+    // {
+    //   id: "char5",
+    //   name: "Void Walker",
+    //   description: "A mysterious entity that can phase through dimensions and manipulate dark energy.",
+    //   price: 2500,
+    //   rarity: "legendary",
+    //   imageUrl: "/void-walker.png",
+    //   modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+    //   purchasable: true,
+    // },
     {
       id: "char6",
       name: "Cosmic Wanderer",
@@ -107,6 +120,7 @@ export default function StoreContent() {
       rarity: "legendary",
       imageUrl: "/celestial-wanderer.png",
       modelPath: "/assets/3d/67fd09ffe6ca40145d1c2b8a.glb",
+      purchasable: true,
     },
     {
       id: "char7",
@@ -116,8 +130,31 @@ export default function StoreContent() {
       rarity: "legendary",
       imageUrl: "/astral-nomad.png",
       modelPath: "/assets/3d/67fd09ffe6ca40145d1c2b8a2.glb",
+      purchasable: true,
     },
-    // Add more characters here as you create them
+    // New Character
+    {
+      id: "char8",
+      name: "Aerial Guardian",
+      description: "A masterful defender who can fly above the battlefield, raining down protective energy on allies.",
+      price: 4000,
+      rarity: "legendary",
+      imageUrl: "/aerial-guardian.png",
+      modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+      purchasable: true,
+    },
+    // BodyBlock Character (not purchasable)
+    // {
+    //   id: "bodyblock",
+    //   name: "Body Blocker",
+    //   description:
+    //     "A special character with unique blocking abilities and movements. This character is available to all players.",
+    //   price: 0,
+    //   rarity: "mythic",
+    //   imageUrl: "/body-blocker.png",
+    //   modelPath: "/assets/3d/BodyBlock.fbx",
+    //   purchasable: false,
+    // },
   ]
 
   useEffect(() => {
@@ -319,14 +356,21 @@ export default function StoreContent() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {mounted &&
                 characters.map((character) => (
-                  <CharacterCard
-                    key={character.id}
-                    character={character}
-                    userCoins={coins}
-                    onViewDetails={() => router.push(`/store/character/${character.id}`)}
-                    onPurchaseComplete={handleCharacterPurchase}
-                    ownedCharacters={ownedCharacters}
-                  />
+                  <div key={character.id} className="relative">
+                    {!character.purchasable && (
+                      <div className="absolute top-0 left-0 w-full h-full bg-black/50 z-10 flex flex-col items-center justify-center rounded-lg">
+                        <Lock className="h-12 w-12 text-white mb-2" />
+                        <p className="text-white text-center px-4">This character is available to all players</p>
+                      </div>
+                    )}
+                    <CharacterCard
+                      character={character}
+                      userCoins={coins}
+                      onViewDetails={() => router.push(`/store/character/${character.id}`)}
+                      onPurchaseComplete={handleCharacterPurchase}
+                      ownedCharacters={character.purchasable ? ownedCharacters : ["bodyblock", ...ownedCharacters]}
+                    />
+                  </div>
                 ))}
             </div>
           </TabsContent>
