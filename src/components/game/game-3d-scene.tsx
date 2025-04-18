@@ -1,27 +1,114 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { OrbitControls, Environment } from "@react-three/drei"
+import { useRef, useState, useEffect } from "react"
+import { Canvas } from "@react-three/fiber"
+import { OrbitControls, Environment, Grid } from "@react-three/drei"
 import * as THREE from "three"
-import { ErrorBoundary } from "react-error-boundary"
+import { Suspense } from "react"
+import { CharacterModel } from "./character-model"
 
-// Simple character component with direct movement
-function PlayerCharacter({ characterId = "default" }) {
-  const { scene } = useGLTF(CHARACTER_MODELS[characterId] || CHARACTER_MODELS.default)
-  const characterRef = useRef<THREE.Group>(null)
-  const [position, setPosition] = useState(new THREE.Vector3(0, 0, 0))
-  const [rotation, setRotation] = useState(0)
-  const keysPressed = useRef<{ [key: string]: boolean }>({})
+interface Player {
+  id: string
+  characterId: string
+  position: {
+    x: number
+    y: number
+    z: number
+  }
+  isMoving: boolean
+  direction?: {
+    x: number
+    y: number
+    z: number
+  }
+}
 
-  // Set up keyboard listeners
+interface Game3DSceneProps {
+  mode: string
+  userId: string
+  gameId?: string
+}
+
+export default function Game3DScene({ mode, userId, gameId }: Game3DSceneProps) {
+  const [players, setPlayers] = useState<Player[]>([])
+  const [playerPosition, setPlayerPosition] = useState({ x: 0, y: 0, z: 0 })
+  const [isMoving, setIsMoving] = useState(false)
+  const [movementDirection, setMovementDirection] = useState<THREE.Vector3 | undefined>(undefined)
+  const [characterId, setCharacterId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const moveSpeed = 0.1
+  const keysPressed = useRef<Record<string, boolean>>({})
+  const characterFetchedRef = useRef(false)
+  const sessionId = gameId || "default-session"
+
+  // Debug logging
+  useEffect(() => {
+    console.log("Game3DScene mounted with:", { mode, userId, gameId: sessionId })
+  }, [mode, userId, sessionId])
+
+  // Fetch the player's character from localStorage or API
+  useEffect(() => {
+    if (!userId || characterFetchedRef.current) return
+
+    const fetchCharacter = async () => {
+      try {
+        console.log("Fetching character for user:", userId)
+
+        // First try to get from localStorage
+        const savedCharacter = localStorage.getItem("selectedCharacter")
+        if (savedCharacter) {
+          console.log("Found character in localStorage:", savedCharacter)
+          setCharacterId(savedCharacter)
+          characterFetchedRef.current = true
+          return
+        }
+
+        // If not in localStorage, try the API
+        const response = await fetch(`/api/player/character?userId=${userId}`)
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch character: ${await response.text()}`)
+        }
+
+        const data = await response.json()
+        console.log("Character data received from API:", data)
+
+        if (data.characterId) {
+          console.log("Setting character ID to:", data.characterId)
+          setCharacterId(data.characterId)
+          // Save to localStorage for future use
+          localStorage.setItem("selectedCharacter", data.characterId)
+        } else {
+          console.warn("No character ID received, using default")
+          setCharacterId("char8") // Default to Body Blocker
+          localStorage.setItem("selectedCharacter", "char8")
+        }
+
+        characterFetchedRef.current = true
+      } catch (error) {
+        console.error("Error fetching character:", error)
+        // Fallback to Body Blocker
+        console.log("Using Body Blocker as fallback")
+        setCharacterId("char8")
+        localStorage.setItem("selectedCharacter", "char8")
+        characterFetchedRef.current = true
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCharacter()
+  }, [userId])
+
+  // Set up keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      keysPressed.current[e.code] = true
+      keysPressed.current[e.key.toLowerCase()] = true
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      keysPressed.current[e.code] = false
+      keysPressed.current[e.key.toLowerCase()] = false
     }
 
     window.addEventListener("keydown", handleKeyDown)
@@ -33,174 +120,184 @@ function PlayerCharacter({ characterId = "default" }) {
     }
   }, [])
 
-  // Handle movement directly in the frame update
-  useFrame((_, delta) => {
-    if (!characterRef.current) return
-
-    const moveSpeed = keysPressed.current["ShiftLeft"] ? 5 * delta : 2 * delta
-    const newPosition = position.clone()
-    let newRotation = rotation
-    let moved = false
-
-    // Forward/backward movement
-    if (keysPressed.current["KeyW"] || keysPressed.current["ArrowUp"]) {
-      newPosition.x += Math.sin(rotation) * moveSpeed
-      newPosition.z += Math.cos(rotation) * moveSpeed
-      moved = true
-    }
-
-    if (keysPressed.current["KeyS"] || keysPressed.current["ArrowDown"]) {
-      newPosition.x -= Math.sin(rotation) * moveSpeed
-      newPosition.z -= Math.cos(rotation) * moveSpeed
-      moved = true
-    }
-
-    // Left/right rotation
-    if (keysPressed.current["KeyA"] || keysPressed.current["ArrowLeft"]) {
-      newRotation += 2 * delta
-      moved = true
-    }
-
-    if (keysPressed.current["KeyD"] || keysPressed.current["ArrowRight"]) {
-      newRotation -= 2 * delta
-      moved = true
-    }
-
-    // Update position and rotation
-    if (moved) {
-      setPosition(newPosition)
-      setRotation(newRotation)
-
-      // Log movement for debugging
-      console.log("Character moved:", newPosition, newRotation)
-
-      // Dispatch custom event for movement debug
-      const event = new CustomEvent("character-moved", {
-        detail: { position: newPosition, rotation: newRotation },
-      })
-      window.dispatchEvent(event)
-    }
-
-    // Apply position and rotation to the character
-    characterRef.current.position.copy(newPosition)
-    characterRef.current.rotation.y = newRotation
-  })
-
-  // Clone the model to avoid sharing issues
-  const model = scene.clone()
-
-  return (
-    <group ref={characterRef} position={position} rotation={[0, rotation, 0]}>
-      {/* The character model */}
-      <primitive object={model} scale={0.5} />
-    </group>
-  )
-}
-
-// Map of character IDs to their GLB file paths
-const CHARACTER_MODELS = {
-  default: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-  char1: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-  char2: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-  char3: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-  char4: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-  char5: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
-  char6: "/assets/3d/67fd09ffe6ca40145d1c2b8a.glb",
-  char7: "/assets/3d/67fd09ffe6ca40145d1c2b8a2.glb",
-}
-
-// Preload all models
-Object.values(CHARACTER_MODELS).forEach((path) => {
-  useGLTF.preload(path)
-})
-
-// Ground plane
-function Ground() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-      <planeGeometry args={[100, 100]} />
-      <meshStandardMaterial color="#4c1d95" />
-      <gridHelper args={[100, 100, "#9333ea", "#9333ea"]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <lineBasicMaterial attach="material" color="#9333ea" transparent opacity={0.4} />
-      </gridHelper>
-    </mesh>
-  )
-}
-
-// Camera that follows the player
-function FollowCamera() {
-  const { camera } = useThree()
-  const [target] = useState(new THREE.Vector3(0, 0, 0))
-
+  // Handle player movement
   useEffect(() => {
-    camera.position.set(0, 5, 10)
-    camera.lookAt(target)
-  }, [camera, target])
+    if (!characterId) return // Don't process movement until character is loaded
 
-  return null
-}
+    const handleMovement = () => {
+      const moveForward = keysPressed.current["w"] || keysPressed.current["arrowup"]
+      const moveBackward = keysPressed.current["s"] || keysPressed.current["arrowdown"]
+      const moveLeft = keysPressed.current["a"] || keysPressed.current["arrowleft"]
+      const moveRight = keysPressed.current["d"] || keysPressed.current["arrowright"]
 
-// Error fallback
-function SceneErrorFallback() {
+      const isMoving = moveForward || moveBackward || moveLeft || moveRight
+      setIsMoving(isMoving)
+
+      if (!isMoving) {
+        setMovementDirection(undefined)
+        return
+      }
+
+      // Calculate the new position
+      let newX = playerPosition.x
+      let newZ = playerPosition.z
+      const directionVector = new THREE.Vector3(0, 0, 0)
+
+      if (moveForward) {
+        newZ -= moveSpeed
+        directionVector.z -= 1
+      }
+      if (moveBackward) {
+        newZ += moveSpeed
+        directionVector.z += 1
+      }
+      if (moveLeft) {
+        newX -= moveSpeed
+        directionVector.x -= 1
+      }
+      if (moveRight) {
+        newX += moveSpeed
+        directionVector.x += 1
+      }
+
+      // Normalize the direction vector
+      if (directionVector.length() > 0) {
+        directionVector.normalize()
+        setMovementDirection(directionVector)
+      }
+
+      // Check boundaries (keeping player within the map limits)
+      newX = Math.max(-20, Math.min(20, newX))
+      newZ = Math.max(-20, Math.min(20, newZ))
+
+      setPlayerPosition({ x: newX, y: 0, z: newZ })
+
+      // Send the new position to the server if we have a gameId
+      if (sessionId !== "default-session") {
+        fetch("/api/game/player-position", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId,
+            gameId: sessionId,
+            position: { x: newX, y: 0, z: newZ },
+            isMoving,
+            characterId,
+            direction:
+              directionVector.length() > 0
+                ? {
+                    x: directionVector.x,
+                    y: directionVector.y,
+                    z: directionVector.z,
+                  }
+                : undefined,
+          }),
+        }).catch((error) => {
+          console.error("Error updating player position:", error)
+        })
+      }
+    }
+
+    const interval = setInterval(handleMovement, 33) // ~30fps
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [playerPosition, userId, sessionId, characterId])
+
+  // Create the local player
+  const localPlayer: Player = {
+    id: userId,
+    characterId: characterId || "char8",
+    position: playerPosition,
+    isMoving,
+    direction: movementDirection
+      ? {
+          x: movementDirection.x,
+          y: movementDirection.y,
+          z: movementDirection.z,
+        }
+      : undefined,
+  }
+
+  if (loading || !characterId) {
+    return (
+      <div className="flex items-center justify-center h-full w-full">
+        <div className="text-center">
+          <div className="text-4xl font-bold mb-4">Loading character...</div>
+          <div className="w-32 h-32 border-t-4 border-purple-500 rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-gray-900 text-white p-4">
-      <div className="text-center">
-        <h3 className="text-lg font-bold mb-2">3D Scene Unavailable</h3>
-        <p className="text-sm text-gray-300">
-          Your browser may not support WebGL or there was an error loading the 3D scene.
-        </p>
+    <div className="w-full h-full">
+      <Canvas shadows camera={{ position: [0, 15, 15], fov: 50 }}>
+        <fog attach="fog" args={["#1f1f1f", 30, 40]} />
+        <color attach="background" args={["#1f1f1f"]} />
+        <ambientLight intensity={0.3} />
+
+        {/* Directional light */}
+        <directionalLight position={[10, 10, 5]} intensity={1} castShadow>
+          <orthographicCamera attach="shadow-camera" args={[-10, 10, 10, -10, 0.1, 50]} />
+        </directionalLight>
+        <directionalLight position={[-10, 10, -5]} intensity={0.5} />
+
+        {/* Floor */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+          <planeGeometry args={[40, 40]} />
+          <meshStandardMaterial color="#444444" />
+          <Grid
+            args={[40, 40]}
+            cellSize={1}
+            cellThickness={0.5}
+            cellColor="#6f6f6f"
+            sectionSize={5}
+            sectionThickness={1}
+            sectionColor="#9d4b4b"
+            fadeDistance={50}
+            fadeStrength={1}
+          />
+        </mesh>
+
+        {/* Player character */}
+        <group position={[localPlayer.position.x, localPlayer.position.y, localPlayer.position.z]}>
+          <Suspense fallback={null}>
+            <CharacterModel
+              characterId={localPlayer.characterId}
+              isMoving={localPlayer.isMoving}
+              direction={
+                localPlayer.direction
+                  ? new THREE.Vector3(localPlayer.direction.x, localPlayer.direction.y, localPlayer.direction.z)
+                  : undefined
+              }
+            />
+          </Suspense>
+          <mesh position={[0, 3, 0]}>
+            <sphereGeometry args={[0.25, 16, 16]} />
+            <meshStandardMaterial color="#00ff00" />
+          </mesh>
+        </group>
+
+        {/* Environment and controls */}
+        <Environment preset="city" />
+        <OrbitControls
+          target={[localPlayer.position.x, 2, localPlayer.position.z]}
+          maxPolarAngle={Math.PI / 2.2}
+          minDistance={5}
+          maxDistance={20}
+        />
+      </Canvas>
+
+      {/* Debug info */}
+      <div className="absolute bottom-4 left-4 bg-black/50 p-2 rounded text-white">
+        <div>WASD or Arrow Keys to move</div>
+        <div>Mouse to look around</div>
+        <div className="font-bold text-green-400">Your character: {characterId}</div>
       </div>
     </div>
   )
 }
-
-// Main component
-export default function Game3DScene({ mode, userId }: { mode: string; userId: string }) {
-  const [selectedCharacter, setSelectedCharacter] = useState("default")
-
-  // Load the selected character from localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedCharacter = localStorage.getItem("selectedCharacter")
-      if (storedCharacter) {
-        console.log("Loading character from localStorage:", storedCharacter)
-        setSelectedCharacter(storedCharacter)
-      }
-    }
-  }, [])
-
-  return (
-    <ErrorBoundary FallbackComponent={SceneErrorFallback}>
-      <Canvas shadows>
-        {/* Lighting */}
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-
-        {/* Environment */}
-        <Environment preset="sunset" />
-
-        {/* Ground */}
-        <Ground />
-
-        {/* Player Character with direct movement */}
-        <PlayerCharacter characterId={selectedCharacter} />
-
-        {/* Camera */}
-        <FollowCamera />
-
-        {/* Controls */}
-        <OrbitControls
-          enableZoom={true}
-          enablePan={false}
-          minPolarAngle={Math.PI / 6}
-          maxPolarAngle={Math.PI / 2}
-          minDistance={5}
-          maxDistance={15}
-        />
-      </Canvas>
-    </ErrorBoundary>
-  )
-}
-
-// Import missing dependencies
-import { useGLTF } from "@react-three/drei"

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { GameView } from "@/components/game/game-view"
 import { Button } from "@/components/ui/button"
 import { Home } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function GamePage({
   params,
@@ -13,7 +14,9 @@ export default function GamePage({
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
+  const supabase = createClientComponentClient()
 
   // Validate the game mode
   const validModes = ["solo", "duo", "trio", "duel"]
@@ -28,16 +31,38 @@ export default function GamePage({
       return
     }
 
-    // Simulate checking if the user is authenticated
-    const isAuthenticated = true // In a real app, check localStorage or session
+    // Get the user ID from Supabase
+    const getUserId = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-    if (!isAuthenticated) {
-      router.push("/login")
-      return
+        if (session) {
+          console.log("User authenticated:", session.user.id)
+          setUserId(session.user.id)
+        } else {
+          // Try to get from localStorage as fallback
+          const localUserId = localStorage.getItem("userId")
+          if (localUserId) {
+            console.log("Using userId from localStorage:", localUserId)
+            setUserId(localUserId)
+          } else {
+            console.log("No user ID found, using fallback")
+            // Use a fallback ID for testing
+            setUserId("user-123")
+          }
+        }
+
+        setLoading(false)
+      } catch (error) {
+        console.error("Error getting user session:", error)
+        setError("Authentication error")
+      }
     }
 
-    setLoading(false)
-  }, [params.mode, params.id, router])
+    getUserId()
+  }, [params.mode, params.id, supabase.auth])
 
   if (loading) {
     return (
@@ -61,14 +86,24 @@ export default function GamePage({
     )
   }
 
-  // For client-side rendering, we'll use a dummy userId
-  // In a real app, you'd get this from the session
-  const dummyUserId = "user-123"
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 max-w-md">
+          <h2 className="text-xl font-bold mb-4">Authentication Error</h2>
+          <p className="mb-4">Unable to determine user ID. Please log in again.</p>
+          <Button onClick={() => router.push("/login")} className="bg-red-600 hover:bg-red-700">
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen bg-gray-900">
       {/* Game View Component */}
-      <GameView mode={params.mode} gameId={params.id} userId={dummyUserId} />
+      <GameView mode={params.mode} gameId={params.id} userId={userId} />
 
       {/* Exit Button */}
       <div className="absolute top-4 right-4 z-20">

@@ -27,6 +27,9 @@ interface GameSceneProps {
   mode: string
   id: string
   userId: string
+  onLoad?: () => void
+  onError?: (error: string) => void
+  onPositionUpdate?: (position: { x: number; y: number; z: number }) => void
 }
 
 function GameMapFloor() {
@@ -78,7 +81,7 @@ function Players({ players, userId }: { players: Player[]; userId: string }) {
   )
 }
 
-export function GameScene({ mode, id, userId }: GameSceneProps) {
+export function GameScene({ mode, id, userId, onLoad, onError, onPositionUpdate }: GameSceneProps) {
   const [loading, setLoading] = useState(true)
   const [players, setPlayers] = useState<Player[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -86,31 +89,69 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, y: 0, z: 0 })
   const [isMoving, setIsMoving] = useState(false)
   const [movementDirection, setMovementDirection] = useState<THREE.Vector3 | undefined>(undefined)
-  const [characterId, setCharacterId] = useState("default")
+  const [characterId, setCharacterId] = useState<string | null>(null)
   const moveSpeed = 0.1
   const keysPressed = useRef<Record<string, boolean>>({})
+  const characterFetchedRef = useRef(false)
 
-  // Create a player ID
+  // Fetch the player's character from the API
   useEffect(() => {
-    // Load selected character from localStorage
-    try {
-      const selectedCharacter = localStorage.getItem("selectedCharacter") || "default"
-      console.log("Loaded selected character:", selectedCharacter)
-      setCharacterId(selectedCharacter)
-    } catch (error) {
-      console.error("Error loading selected character:", error)
+    if (!userId || characterFetchedRef.current) return
+
+    const fetchCharacter = async () => {
+      try {
+        console.log("Fetching character for user:", userId)
+        const response = await fetch(`/api/player/character?userId=${userId}`)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("Error fetching character:", errorText)
+          throw new Error(`Failed to fetch character: ${errorText}`)
+        }
+
+        const data = await response.json()
+        console.log("Character data received:", data)
+
+        if (data.characterId) {
+          console.log("Setting character ID to:", data.characterId)
+          setCharacterId(data.characterId)
+          // Save to localStorage as backup
+          localStorage.setItem("selectedCharacter", data.characterId)
+        } else {
+          console.warn("No character ID received, using default")
+          setCharacterId("char8") // Default to Body Blocker
+          localStorage.setItem("selectedCharacter", "char8")
+        }
+
+        characterFetchedRef.current = true
+      } catch (error) {
+        console.error("Error fetching character:", error)
+        // Fallback to localStorage
+        const savedCharacter = localStorage.getItem("selectedCharacter") || "char8"
+        console.log("Using saved character from localStorage:", savedCharacter)
+        setCharacterId(savedCharacter)
+        characterFetchedRef.current = true
+      }
     }
 
-    // Initialize the player when the component mounts
+    fetchCharacter()
+  }, [userId])
+
+  // Initialize the player when the component mounts and character is loaded
+  useEffect(() => {
+    if (!characterId) return // Wait until character is loaded
+
     const initPlayer = async () => {
       try {
         if (!userId) {
-          console.error("No user ID provided for player initialization")
-          setError("No user ID provided")
+          const errorMsg = "No user ID provided for player initialization"
+          console.error(errorMsg)
+          setError(errorMsg)
+          if (onError) onError(errorMsg)
           return
         }
 
-        console.log(`Initializing player with userId: ${userId}, mode: ${mode}, id: ${id}`)
+        console.log(`Initializing player with userId: ${userId}, mode: ${mode}, id: ${id}, characterId: ${characterId}`)
 
         // Join the game
         const joinResponse = await fetch("/api/game/join-game", {
@@ -122,22 +163,27 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
             userId,
             sessionId: id,
             mode,
-            characterId: characterId, // Use the loaded character ID
+            characterId,
           }),
         })
 
         if (!joinResponse.ok) {
           const errorData = await joinResponse.json()
+          const errorMsg = errorData.error || "Failed to join game"
           console.error("Failed to join game:", errorData)
-          setError(errorData.error || "Failed to join game")
+          setError(errorMsg)
+          if (onError) onError(errorMsg)
           return
         }
 
         console.log("Successfully joined game")
         setLoading(false)
+        if (onLoad) onLoad()
       } catch (error) {
-        console.error("Error initializing player:", error)
-        setError("Error initializing player")
+        const errorMsg = `Error initializing player: ${error}`
+        console.error(errorMsg)
+        setError(errorMsg)
+        if (onError) onError(errorMsg)
       }
     }
 
@@ -157,7 +203,7 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
     return () => {
       clearInterval(countdownInterval)
     }
-  }, [userId, mode, id, characterId])
+  }, [userId, mode, id, characterId, onLoad, onError])
 
   // Set up keyboard controls
   useEffect(() => {
@@ -180,6 +226,8 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
 
   // Handle player movement
   useEffect(() => {
+    if (!characterId) return // Don't process movement until character is loaded
+
     const handleMovement = () => {
       const moveForward = keysPressed.current["w"] || keysPressed.current["arrowup"]
       const moveBackward = keysPressed.current["s"] || keysPressed.current["arrowdown"]
@@ -226,11 +274,10 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
       newX = Math.max(-20, Math.min(20, newX))
       newZ = Math.max(-20, Math.min(20, newZ))
 
-      setPlayerPosition((prev) => ({
-        ...prev,
-        x: newX,
-        z: newZ,
-      }))
+      const newPosition = { x: newX, y: 0, z: newZ }
+
+      setPlayerPosition(newPosition)
+      if (onPositionUpdate) onPositionUpdate(newPosition)
 
       // Send the new position to the server
       fetch("/api/game/player-position", {
@@ -240,9 +287,10 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
         },
         body: JSON.stringify({
           userId,
-          sessionId: id,
-          position: { x: newX, y: 0, z: newZ },
+          gameId: id,
+          position: newPosition,
           isMoving,
+          characterId,
           direction:
             directionVector.length() > 0
               ? {
@@ -262,7 +310,7 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
     return () => {
       clearInterval(interval)
     }
-  }, [playerPosition, userId, id])
+  }, [playerPosition, userId, id, characterId, onPositionUpdate])
 
   // Fetch players periodically
   useEffect(() => {
@@ -290,14 +338,19 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
     }
   }, [id])
 
-  if (loading || countdown > 0) {
+  if (loading || countdown > 0 || !characterId) {
     return (
       <div className="flex items-center justify-center h-full w-full">
         <div className="text-center">
           <div className="text-4xl font-bold mb-4">
-            {countdown > 0 ? `Game starting in ${countdown}` : "Loading game..."}
+            {!characterId
+              ? "Loading character..."
+              : countdown > 0
+                ? `Game starting in ${countdown}`
+                : "Loading game..."}
           </div>
           <div className="w-32 h-32 border-t-4 border-purple-500 rounded-full animate-spin mx-auto"></div>
+          {characterId && <div className="mt-4 text-lg">Character: {characterId}</div>}
         </div>
       </div>
     )
@@ -361,6 +414,7 @@ export function GameScene({ mode, id, userId }: GameSceneProps) {
         <div>WASD or Arrow Keys to move</div>
         <div>Mouse to look around</div>
         <div>Players in room: {allPlayers.length}</div>
+        <div className="font-bold text-green-400">Your character: {characterId}</div>
       </div>
     </div>
   )

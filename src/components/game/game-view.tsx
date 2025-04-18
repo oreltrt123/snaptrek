@@ -31,9 +31,17 @@ export function GameView({ mode, gameId, userId }: GameViewProps) {
   const [playerCount] = useState(1)
   const [maxPlayers, setMaxPlayers] = useState(10)
   const [isMobile, setIsMobile] = useState(false)
+  const [characterId, setCharacterId] = useState<string | null>(null)
 
   useEffect(() => {
     console.log("GameView - Mode:", mode, "Game ID:", gameId, "User ID:", userId)
+
+    // Try to get the character ID from localStorage
+    const savedCharacter = localStorage.getItem("selectedCharacter")
+    if (savedCharacter) {
+      console.log("Found character in localStorage:", savedCharacter)
+      setCharacterId(savedCharacter)
+    }
 
     // Check if device is mobile
     setIsMobile(window.innerWidth < 768)
@@ -85,7 +93,7 @@ export function GameView({ mode, gameId, userId }: GameViewProps) {
     <>
       {/* 3D Game Scene */}
       <div className="absolute inset-0">
-        <Game3DScene mode={mode} userId={userId} />
+        <Game3DScene mode={mode} userId={userId} gameId={gameId} />
       </div>
 
       {/* Game HUD */}
@@ -106,6 +114,11 @@ export function GameView({ mode, gameId, userId }: GameViewProps) {
 
       {/* Movement Debug */}
       <MovementDebug />
+
+      {/* Character Debug */}
+      <div className="absolute bottom-20 right-4 z-10 bg-black/50 p-2 rounded text-white">
+        <div>Character ID: {characterId || "Not loaded"}</div>
+      </div>
 
       {/* Game Controls - for mobile devices */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
