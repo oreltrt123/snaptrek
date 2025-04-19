@@ -119,16 +119,32 @@ const characters = {
     id: "char8",
     name: "Body Blocker",
     description:
-      "A tactical defensive specialist with unmatched blocking abilities. The Body Blocker can create impenetrable barriers that protect allies from incoming attacks. Their unique physiology allows them to absorb and redirect kinetic energy, making them the ultimate team protector in any combat situation.",
+      "A tactical defensive specialist with unmatched blocking abilities. The Body Blocker excels at creating impenetrable barriers and protecting teammates from harm. Their unique defensive stance can absorb massive amounts of damage, making them an essential part of any team composition.",
     price: 0, // Free character
     rarity: "uncommon",
     imageUrl: "/body-blocker.png",
     modelPath: "/assets/3d/BodyBlock.fbx",
     stats: {
-      strength: 65,
+      strength: 60,
       agility: 50,
-      defense: 100,
+      defense: 95,
       magic: 30,
+    },
+  },
+  standarddle: {
+    id: "standarddle",
+    name: "Standarddle",
+    description:
+      "A versatile fighter with balanced abilities and smooth animations from Mixamo. The Standarddle is the perfect all-rounder, capable of adapting to any situation with ease. Their balanced stats and fluid movement make them an excellent choice for beginners and veterans alike.",
+    price: 1000,
+    rarity: "rare",
+    imageUrl: "/standarddle.png",
+    modelPath: "/assets/3d/Standarddle.fbx",
+    stats: {
+      strength: 70,
+      agility: 70,
+      defense: 70,
+      magic: 70,
     },
   },
 }

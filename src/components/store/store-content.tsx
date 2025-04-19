@@ -143,18 +143,16 @@ export default function StoreContent() {
       modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
       purchasable: true,
     },
-    // BodyBlock Character (not purchasable)
-    // {
-    //   id: "bodyblock",
-    //   name: "Body Blocker",
-    //   description:
-    //     "A special character with unique blocking abilities and movements. This character is available to all players.",
-    //   price: 0,
-    //   rarity: "mythic",
-    //   imageUrl: "/body-blocker.png",
-    //   modelPath: "/assets/3d/BodyBlock.fbx",
-    //   purchasable: false,
-    // },
+    {
+      id: "standarddle",
+      name: "Standarddle",
+      description: "A versatile fighter with balanced abilities and smooth animations from Mixamo.",
+      price: 1000,
+      rarity: "legendary",
+      imageUrl: "/word-puzzle-pieces.png",
+      modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+      purchasable: true,
+    }
   ]
 
   useEffect(() => {

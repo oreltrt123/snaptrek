@@ -103,6 +103,14 @@ const storeCharacters: Record<string, Character> = {
     modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
     thumbnailUrl: "/body-blocker.png",
   },
+  standarddle: {
+    id: "standarddle",
+    name: "Standarddle",
+    description: "A versatile fighter with balanced abilities and smooth animations from Mixamo.",
+    rarity: "legendary",
+    modelPath: "/assets/3d/67fceb28cde84e5e1b093c66.glb",
+    thumbnailUrl: "/body-blocker.png",
+  },
 }
 
 // Default character defined outside component

@@ -10,6 +10,8 @@ import type { Group } from "three"
 interface CharacterModelProps {
   characterId: string
   isMoving?: boolean
+  isSprinting?: boolean
+  isJumping?: boolean
   direction?: THREE.Vector3
   position?: [number, number, number]
   onError?: () => void
@@ -27,17 +29,22 @@ const MODEL_PATHS: Record<string, string> = {
   char7: "/assets/3d/67fd09ffe6ca40145d1c2b8a2.glb",
   char8: "/assets/3d/BodyBlock.fbx",
   "body-blocker": "/assets/3d/BodyBlock.fbx",
+  standarddle: "/assets/3d/Standarddle.fbx",
 }
 
 // Animation paths for Mixamo FBX models
 const MIXAMO_ANIMATIONS = {
   idle: "/assets/animations/TalkingOnPhone.fbx",
-  walking: "/assets/animations/walking.fbx",
+  walking: "/assets/animations/CatwalkWalk.fbx",
+  running: "/assets/animations/Running.fbx",
+  jumping: "/assets/animations/Jumping.fbx",
 }
 
 export function CharacterModel({
   characterId = "default",
   isMoving = false,
+  isSprinting = false,
+  isJumping = false,
   direction,
   position = [0, 0, 0],
   onError,
@@ -50,6 +57,7 @@ export function CharacterModel({
   const [fbxModel, setFbxModel] = useState<THREE.Group | null>(null)
   const [fbxAnimations, setFbxAnimations] = useState<Record<string, THREE.AnimationClip>>({})
   const [fbxLoaded, setFbxLoaded] = useState(false)
+  const [jumpState, setJumpState] = useState({ isJumping: false, jumpTime: 0 })
 
   // Get the model path for this character, defaulting to the default model for safety
   const modelPath = MODEL_PATHS[characterId] || MODEL_PATHS.default
@@ -183,8 +191,8 @@ export function CharacterModel({
                 setCurrentAnimation("idle")
               }
 
-              // If we've loaded both animations, mark as complete
-              if (name === "walking" || Object.keys(fbxAnimations).includes("walking")) {
+              // If we've loaded all animations, mark as complete
+              if (Object.keys(fbxAnimations).length >= 3) {
                 setLoadingState("fbx-animations-loaded")
                 setFbxLoaded(true)
               }
@@ -204,9 +212,11 @@ export function CharacterModel({
       }
     }
 
-    // Load idle and walking animations
+    // Load all animations
     loadAnimation(MIXAMO_ANIMATIONS.idle, "idle")
     loadAnimation(MIXAMO_ANIMATIONS.walking, "walking")
+    loadAnimation(MIXAMO_ANIMATIONS.running, "running")
+    loadAnimation(MIXAMO_ANIMATIONS.jumping, "jumping")
 
     return () => {
       isMounted = false
@@ -260,11 +270,24 @@ export function CharacterModel({
     }
   }, [gltfScene, gltfAnimations, isFbxModel, characterId])
 
+  // Handle jumping state
+  useEffect(() => {
+    if (isJumping && !jumpState.isJumping) {
+      setJumpState({ isJumping: true, jumpTime: 0 })
+    }
+  }, [isJumping, jumpState.isJumping])
+
   // Handle animation changes based on movement
   useEffect(() => {
     if (!mixer) return
 
-    const targetAnimation = isMoving ? "walking" : "idle"
+    let targetAnimation = "idle"
+
+    if (jumpState.isJumping) {
+      targetAnimation = "jumping"
+    } else if (isMoving) {
+      targetAnimation = isSprinting ? "running" : "walking"
+    }
 
     // If we're already playing the target animation, do nothing
     if (currentAnimation === targetAnimation) return
@@ -297,6 +320,10 @@ export function CharacterModel({
           targetClip = gltfAnimations.find((a) => a.name.toLowerCase().includes("idle"))
         } else if (targetAnimation === "walking") {
           targetClip = gltfAnimations.find((a) => a.name.toLowerCase().includes("walk"))
+        } else if (targetAnimation === "running") {
+          targetClip = gltfAnimations.find((a) => a.name.toLowerCase().includes("run"))
+        } else if (targetAnimation === "jumping") {
+          targetClip = gltfAnimations.find((a) => a.name.toLowerCase().includes("jump"))
         }
 
         if (!targetClip) {
@@ -313,12 +340,39 @@ export function CharacterModel({
         setCurrentAnimation(targetAnimation)
       }
     }
-  }, [isMoving, mixer, fbxAnimations, gltfAnimations, currentAnimation, isFbxModel, characterId])
+  }, [
+    isMoving,
+    isSprinting,
+    jumpState.isJumping,
+    mixer,
+    fbxAnimations,
+    gltfAnimations,
+    currentAnimation,
+    isFbxModel,
+    characterId,
+  ])
 
-  // Update mixer on each frame
+  // Update mixer on each frame and handle jump animation
   useFrame((_, delta) => {
     if (mixer) {
       mixer.update(delta)
+    }
+
+    // Handle jump animation timing
+    if (jumpState.isJumping) {
+      const newJumpTime = jumpState.jumpTime + delta
+      setJumpState((prev) => ({ ...prev, jumpTime: newJumpTime }))
+
+      // End jump after 1 second
+      if (newJumpTime > 1) {
+        setJumpState({ isJumping: false, jumpTime: 0 })
+      }
+
+      // Apply jump height based on time (simple parabola)
+      if (groupRef.current) {
+        const jumpHeight = Math.sin(Math.PI * newJumpTime) * 1.5
+        groupRef.current.position.y = jumpHeight
+      }
     }
 
     // Rotate character to face movement direction
