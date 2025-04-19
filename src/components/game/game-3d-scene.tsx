@@ -16,15 +16,6 @@ import { createClient } from "@supabase/supabase-js"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  // Disable schema cache to avoid issues
-  db: {
-    schema: "public",
-  },
-  global: {
-    headers: {
-      "x-disable-cache": "true",
-    },
-  },
   realtime: {
     params: {
       eventsPerSecond: 10,
@@ -69,6 +60,8 @@ interface Game3DSceneProps {
   characterId: string
   otherPlayers: any[]
   onInventoryUpdate?: (inventory: { weapons: string[]; items: string[] }) => void
+  debugInfo: string
+  setDebugInfo: (info: string) => void
 }
 
 export default function Game3DScene({
@@ -78,6 +71,8 @@ export default function Game3DScene({
   characterId,
   otherPlayers,
   onInventoryUpdate,
+  debugInfo,
+  setDebugInfo,
 }: Game3DSceneProps) {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, y: 0, z: 0 })
   const [isMoving, setIsMoving] = useState(false)
@@ -91,8 +86,8 @@ export default function Game3DScene({
   const [weapons, setWeapons] = useState<Weapon[]>([])
   const [inventory, setInventory] = useState<{ weapons: string[]; items: string[] }>({ weapons: [], items: [] })
   const [remotePlayerPositions, setRemotePlayerPositions] = useState<Record<string, any>>({})
-  const [debugInfo, setDebugInfo] = useState<string>("")
   const [playerColors, setPlayerColors] = useState<Record<string, string>>({})
+  const [realtimeStatus, setRealtimeStatus] = useState("Not connected")
 
   const moveSpeed = 0.1
   const sprintMultiplier = 2.0
@@ -102,6 +97,7 @@ export default function Game3DScene({
   const characterRef = useRef<THREE.Group>(null)
   const lastUpdateTime = useRef<number>(0)
   const lastPositionRef = useRef({ x: 0, y: 0, z: 0 })
+  const channelRef = useRef<any>(null)
 
   // Generate map features based on game mode
   const mapFeatures = useMemo(() => {
@@ -460,162 +456,232 @@ export default function Game3DScene({
     console.log("Setting up real-time subscription for game:", gameId)
     setDebugInfo("Setting up real-time subscription...")
 
-    // Try multiple channel names to ensure we get updates
-    const channels = []
-
-    // Channel 1: Using player_positions_publication format
-    const playerPositionsChannel = supabase
-      .channel(`player-positions-${gameId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_players",
-          filter: `game_id=eq.${gameId}`,
-        },
-        (payload) => {
-          // Ignore updates for the current player
-          if (payload.new && payload.new.user_id !== userId) {
-            console.log("Remote player update received from channel 1:", payload.new)
-            setDebugInfo(`Remote player update: ${payload.new.user_id}`)
-
-            // Update the remote player's position
-            setRemotePlayerPositions((prev) => ({
-              ...prev,
-              [payload.new.user_id]: {
-                position: {
-                  x: payload.new.position_x || 0,
-                  y: payload.new.position_y || 0,
-                  z: payload.new.position_z || 0,
-                },
-                isMoving: payload.new.is_moving || false,
-                isSprinting: payload.new.is_sprinting || false,
-                isJumping: payload.new.is_jumping || false,
-                direction: payload.new.direction_x
-                  ? {
-                      x: payload.new.direction_x,
-                      y: payload.new.direction_y || 0,
-                      z: payload.new.direction_z || 0,
-                    }
-                  : undefined,
-                characterId: payload.new.character_id || "char8",
-              },
-            }))
-          }
-        },
-      )
-      .subscribe((status) => {
-        console.log("Channel 1 subscription status:", status)
-        setDebugInfo(`Channel 1 status: ${JSON.stringify(status)}`)
-      })
-
-    channels.push(playerPositionsChannel)
-
-    // Channel 2: Using direct table name
-    const directTableChannel = supabase
-      .channel(`game_players-${gameId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_players",
-          filter: `game_id=eq.${gameId}`,
-        },
-        (payload) => {
-          // Ignore updates for the current player
-          if (payload.new && payload.new.user_id !== userId) {
-            console.log("Remote player update received from channel 2:", payload.new)
-            setDebugInfo(`Channel 2 update: ${payload.new.user_id}`)
-
-            // Update the remote player's position
-            setRemotePlayerPositions((prev) => ({
-              ...prev,
-              [payload.new.user_id]: {
-                position: {
-                  x: payload.new.position_x || 0,
-                  y: payload.new.position_y || 0,
-                  z: payload.new.position_z || 0,
-                },
-                isMoving: payload.new.is_moving || false,
-                isSprinting: payload.new.is_sprinting || false,
-                isJumping: payload.new.is_jumping || false,
-                direction: payload.new.direction_x
-                  ? {
-                      x: payload.new.direction_x,
-                      y: payload.new.direction_y || 0,
-                      z: payload.new.direction_z || 0,
-                    }
-                  : undefined,
-                characterId: payload.new.character_id || "char8",
-              },
-            }))
-          }
-        },
-      )
-      .subscribe((status) => {
-        console.log("Channel 2 subscription status:", status)
-        setDebugInfo(`Channel 2 status: ${JSON.stringify(status)}`)
-      })
-
-    channels.push(directTableChannel)
-
-    // Periodically check for new players that might not be in our state yet
-    const playerCheckInterval = setInterval(() => {
-      supabase
-        .from("game_players")
-        .select("*")
-        .eq("game_id", gameId)
-        .neq("user_id", userId)
-        .then(({ data, error }) => {
-          if (error) {
-            console.error("Error fetching players:", error)
-          } else if (data && data.length > 0) {
-            console.log("Periodic player check found:", data.length, "players")
-
-            // Update remote players
-            const updatedPositions = { ...remotePlayerPositions }
-            let hasNewPlayers = false
-
-            data.forEach((player) => {
-              if (!updatedPositions[player.user_id]) {
-                hasNewPlayers = true
-                updatedPositions[player.user_id] = {
-                  position: {
-                    x: player.position_x || 0,
-                    y: player.position_y || 0,
-                    z: player.position_z || 0,
-                  },
-                  isMoving: player.is_moving || false,
-                  isSprinting: player.is_sprinting || false,
-                  isJumping: player.is_jumping || false,
-                  direction: player.direction_x
-                    ? {
-                        x: player.direction_x,
-                        y: player.direction_y || 0,
-                        z: player.direction_z || 0,
-                      }
-                    : undefined,
-                  characterId: player.character_id || "char8",
-                }
-              }
-            })
-
-            if (hasNewPlayers) {
-              console.log("Adding new remote players:", updatedPositions)
-              setRemotePlayerPositions(updatedPositions)
-              setDebugInfo(`Found ${Object.keys(updatedPositions).length} total remote players`)
-            }
-          }
+    // Try multiple channel configurations to ensure we get updates
+    const setupRealtimeSubscription = async () => {
+      try {
+        // First, ensure the game_players table has realtime enabled
+        await supabase.rpc("execute_sql", {
+          sql: `COMMENT ON TABLE game_players IS 'Realtime enabled: true';`,
         })
-    }, 2000) // Check every 2 seconds
 
-    return () => {
-      console.log("Cleaning up real-time subscription")
-      channels.forEach((channel) => channel.unsubscribe())
-      clearInterval(playerCheckInterval)
+        // Create a channel for game_players updates
+        const channel = supabase
+          .channel(`game-${gameId}-${Date.now()}`) // Add timestamp to make channel name unique
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "game_players",
+              filter: `game_id=eq.${gameId}`,
+            },
+            (payload) => {
+              console.log("Realtime update received:", payload)
+
+              // Ignore updates for the current player
+              if (payload.new && payload.new.user_id !== userId) {
+                console.log("Remote player update received:", payload.new)
+                setDebugInfo(`Player update: ${payload.new.user_id}`)
+
+                // Update the remote player's position
+                setRemotePlayerPositions((prev) => ({
+                  ...prev,
+                  [payload.new.user_id]: {
+                    position: {
+                      x: payload.new.position_x || 0,
+                      y: payload.new.position_y || 0,
+                      z: payload.new.position_z || 0,
+                    },
+                    isMoving: payload.new.is_moving || false,
+                    isSprinting: payload.new.is_sprinting || false,
+                    isJumping: payload.new.is_jumping || false,
+                    direction: payload.new.direction_x
+                      ? {
+                          x: payload.new.direction_x,
+                          y: payload.new.direction_y || 0,
+                          z: payload.new.direction_z || 0,
+                        }
+                      : undefined,
+                    characterId: payload.new.character_id || "char8",
+                  },
+                }))
+              }
+
+              // Handle player deletion (when they leave)
+              if (payload.eventType === "DELETE" && payload.old && payload.old.user_id !== userId) {
+                console.log("Player left:", payload.old.user_id)
+                setDebugInfo(`Player left: ${payload.old.user_id}`)
+
+                // Remove the player from our state
+                setRemotePlayerPositions((prev) => {
+                  const updated = { ...prev }
+                  delete updated[payload.old.user_id]
+                  return updated
+                })
+              }
+            },
+          )
+          .subscribe((status) => {
+            console.log("Subscription status:", status)
+            setRealtimeStatus(`${status.status}`)
+            setDebugInfo(`Realtime status: ${status.status}`)
+          })
+
+        channelRef.current = channel
+
+        // Also try a broader subscription without filters
+        const broadChannel = supabase
+          .channel(`game-broad-${gameId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "game_players",
+            },
+            (payload) => {
+              console.log("Broad channel update:", payload)
+
+              // Only process updates for players in this game
+              if (payload.new && payload.new.game_id === gameId && payload.new.user_id !== userId) {
+                console.log("Broad channel player update:", payload.new)
+
+                setRemotePlayerPositions((prev) => ({
+                  ...prev,
+                  [payload.new.user_id]: {
+                    position: {
+                      x: payload.new.position_x || 0,
+                      y: payload.new.position_y || 0,
+                      z: payload.new.position_z || 0,
+                    },
+                    isMoving: payload.new.is_moving || false,
+                    isSprinting: payload.new.is_sprinting || false,
+                    isJumping: payload.new.is_jumping || false,
+                    direction: payload.new.direction_x
+                      ? {
+                          x: payload.new.direction_x,
+                          y: payload.new.direction_y || 0,
+                          z: payload.new.direction_z || 0,
+                        }
+                      : undefined,
+                    characterId: payload.new.character_id || "char8",
+                  },
+                }))
+              }
+            },
+          )
+          .subscribe()
+
+        // Immediately fetch all players to ensure we have the latest data
+        const { data: players, error } = await supabase
+          .from("game_players")
+          .select("*")
+          .eq("game_id", gameId)
+          .neq("user_id", userId)
+
+        if (error) {
+          console.error("Error fetching players:", error)
+        } else if (players && players.length > 0) {
+          console.log("Initial player fetch found:", players.length, "players")
+
+          const updatedPositions = {}
+          players.forEach((player) => {
+            updatedPositions[player.user_id] = {
+              position: {
+                x: player.position_x || 0,
+                y: player.position_y || 0,
+                z: player.position_z || 0,
+              },
+              isMoving: player.is_moving || false,
+              isSprinting: player.is_sprinting || false,
+              isJumping: player.is_jumping || false,
+              direction: player.direction_x
+                ? {
+                    x: player.direction_x,
+                    y: player.direction_y || 0,
+                    z: player.direction_z || 0,
+                  }
+                : undefined,
+              characterId: player.character_id || "char8",
+            }
+          })
+
+          setRemotePlayerPositions(updatedPositions)
+          setDebugInfo(`Found ${players.length} players in initial fetch`)
+        }
+
+        // Set up a periodic refresh to catch any missed updates
+        const refreshInterval = setInterval(async () => {
+          try {
+            const { data: refreshedPlayers, error: refreshError } = await supabase
+              .from("game_players")
+              .select("*")
+              .eq("game_id", gameId)
+              .neq("user_id", userId)
+
+            if (refreshError) {
+              console.error("Error in refresh:", refreshError)
+            } else if (refreshedPlayers && refreshedPlayers.length > 0) {
+              console.log("Refresh found:", refreshedPlayers.length, "players")
+
+              // Update our state with the latest player data
+              const updatedPositions = { ...remotePlayerPositions }
+              let hasChanges = false
+
+              refreshedPlayers.forEach((player) => {
+                // Check if this is a new player or has updated position
+                const existingPlayer = updatedPositions[player.user_id]
+                if (
+                  !existingPlayer ||
+                  existingPlayer.position.x !== player.position_x ||
+                  existingPlayer.position.z !== player.position_z ||
+                  existingPlayer.isMoving !== player.is_moving
+                ) {
+                  hasChanges = true
+                  updatedPositions[player.user_id] = {
+                    position: {
+                      x: player.position_x || 0,
+                      y: player.position_y || 0,
+                      z: player.position_z || 0,
+                    },
+                    isMoving: player.is_moving || false,
+                    isSprinting: player.is_sprinting || false,
+                    isJumping: player.is_jumping || false,
+                    direction: player.direction_x
+                      ? {
+                          x: player.direction_x,
+                          y: player.direction_y || 0,
+                          z: player.direction_z || 0,
+                        }
+                      : undefined,
+                    characterId: player.character_id || "char8",
+                  }
+                }
+              })
+
+              if (hasChanges) {
+                setRemotePlayerPositions(updatedPositions)
+                setDebugInfo(`Updated ${Object.keys(updatedPositions).length} players in refresh`)
+              }
+            }
+          } catch (err) {
+            console.error("Error in refresh interval:", err)
+          }
+        }, 2000) // Check every 2 seconds
+
+        return () => {
+          console.log("Cleaning up real-time subscription")
+          channel.unsubscribe()
+          broadChannel.unsubscribe()
+          clearInterval(refreshInterval)
+        }
+      } catch (err) {
+        console.error("Error setting up realtime:", err)
+        setDebugInfo(`Error setting up realtime: ${err.message}`)
+      }
     }
+
+    setupRealtimeSubscription()
   }, [gameId, userId])
 
   // Handle player movement with improved keyboard handling
@@ -827,6 +893,7 @@ export default function Game3DScene({
         <div>
           Position: X:{playerPosition.x.toFixed(2)} Z:{playerPosition.z.toFixed(2)}
         </div>
+        <div>Realtime: {realtimeStatus}</div>
         <div>Debug: {debugInfo}</div>
       </div>
     )

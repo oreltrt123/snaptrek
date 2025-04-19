@@ -347,7 +347,7 @@ export function GameView({ mode, gameId, userId }: GameViewProps) {
 
       leaveGame()
     }
-  }, [mode, gameId, userId])
+  }, [mode, gameId, userId, maxPlayers])
 
   // Function to update inventory when items are picked up
   const handleInventoryUpdate = (newInventory: { weapons: string[]; items: string[] }) => {
@@ -412,6 +412,8 @@ export function GameView({ mode, gameId, userId }: GameViewProps) {
           onInventoryUpdate={handleInventoryUpdate}
           otherPlayers={otherPlayers}
           characterId={characterId || "char8"}
+          debugInfo={debugInfo}
+          setDebugInfo={setDebugInfo}
         />
       </div>
 
